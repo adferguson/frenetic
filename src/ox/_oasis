@@ -21,6 +21,7 @@ Library ox
     OxShared
   Modules:
     OxStart,
+    OxHypervisor,
     OxPlatform
 
 Document doc

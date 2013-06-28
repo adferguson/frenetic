@@ -30,6 +30,22 @@ let init_with_fd (fd : Lwt_unix.file_descr) : unit Lwt.t =
     server_fd := Some fd;
     Lwt.return ()
 
+let rec connect_to_controller (hostname: string) (port : int) : unit Lwt.t =
+  Format.printf "Trying to connect to [%s:%d]...\n%!" hostname port;
+  let open Lwt_unix in
+  let host = Unix.gethostbyname hostname in
+  let addr = ADDR_INET (host.h_addr_list.(0), port) in
+  let sock = socket host.h_addrtype SOCK_STREAM 0 in
+  try 
+    lwt () = connect sock addr in 
+    (* Lwt.return sock *)
+    Lwt.return ()
+  with exn -> 
+    let timeout = 2.0 in
+    Format.printf "Error in connecting to [%s:%d] will try again in %.2f ...\n%!" hostname port timeout;
+    sleep timeout >> 
+    connect_to_controller hostname port;;
+
 let init_with_port (port : int) : unit Lwt.t = 
   let open Lwt_unix in 
   let fd = socket PF_INET SOCK_STREAM 0 in
