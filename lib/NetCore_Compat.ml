@@ -119,6 +119,7 @@ end
 
 module Compat0x04 =
 struct
+  open OpenFlow0x04
   open OpenFlow0x04_Core
   open NetCore_Types
   module NetCoreCompiler = NetCore_Compiler.NetCoreGroupCompiler
@@ -135,12 +136,13 @@ struct
       queue_stats = caps.OpenFlow0x04_Core.queue_stats;
       port_blocked = caps.OpenFlow0x04_Core.port_blocked }
 
-  let to_nc_features feats portDescs = 
-    { datapath_id = feats.OpenFlow0x04_Core.datapath_id;
-      num_buffers = Int32.to_int feats.OpenFlow0x04_Core.num_buffers;
-      num_tables = feats.OpenFlow0x04_Core.num_tables;
-      supported_capabilities = convert_of_caps_to_nc_caps feats.OpenFlow0x04_Core.supported_capabilities;
-      ports = List.map (fun x -> x.OpenFlow0x04_Core.port_no) portDescs}
+  let to_nc_features feat portDescs =
+    { datapath_id = feat.SwitchFeatures.datapath_id;
+      num_buffers = Int32.to_int feat.SwitchFeatures.num_buffers;
+      num_tables = feat.SwitchFeatures.num_tables;
+      supported_capabilities = convert_of_caps_to_nc_caps feat.SwitchFeatures.supported_capabilities;
+      ports = List.map (fun x -> x.OpenFlow0x04_Core.port_no) portDescs
+    }
 
   let as_actionSequence inp acts = match acts with
     | [] -> []
@@ -203,6 +205,7 @@ struct
     | OF10.SetNwDst dst -> [SetField (OxmIP4Dst (val_to_mask dst))]
     | OF10.SetTpSrc src -> [SetField (OxmTCPSrc (val_to_mask src))]
     | OF10.SetTpDst dst -> [SetField (OxmTCPDst (val_to_mask dst))]
+    | OF10.Enqueue _ -> failwith "NYI: Enqueue for OF 0x04"
     | OF10.SetNwTos _ -> failwith "NYI: translate_action SetNwTos"
 
   (** val to_flow_mod : priority -> Pattern.pattern -> act list -> flowMod **)

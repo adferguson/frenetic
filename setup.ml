@@ -5997,7 +5997,7 @@ let setup_t =
                       bs_nativeopt = [(OASISExpr.EBool true, [])];
                       },
                    {exec_custom = true; exec_main_is = "frenetic.ml"; });
-               Executable
+        (*       Executable
                  ({
                      cs_name = "katnetic";
                      cs_data = PropList.Data.create ();
@@ -6030,6 +6030,7 @@ let setup_t =
                       bs_nativeopt = [(OASISExpr.EBool true, [])];
                       },
                    {exec_custom = false; exec_main_is = "katnetic.ml"; });
+          *)
                Doc
                  ({
                      cs_name = "doc";
