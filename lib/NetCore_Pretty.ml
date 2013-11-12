@@ -44,8 +44,10 @@ module Format = struct
 
   let match_modify pr lbl fmt mm = match mm with
     | None -> ()
-    | Some (old, new_) -> fprintf fmt "@[@[%s@ %s@,->@,%s@];@ @]"
-                            lbl (pr old) (pr new_)
+    | Some (Some(old), new_) -> fprintf fmt "@[@[%s@ %s@,->@,%s@];@ @]"
+                                  lbl (pr old) (pr new_)
+    | Some (None, new_) -> fprintf fmt "@[@[%s@ ->@,%s@];@ @]"
+                                   lbl (pr new_)
 
   let output fmt (out : output) : unit =
     fprintf fmt "@[%a%a%a%a%a%a%a%a%a%s@]"

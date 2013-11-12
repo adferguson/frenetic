@@ -21,7 +21,8 @@ type port = NetCore_Pattern.port
 
 type ptrn = NetCore_Pattern.t
 
-type 'a match_modify = ('a * 'a) option
+type 'a match_modify = ('a option * 'a) option
+
 
 (** Note that OpenFlow does not allow the [dlTyp] and [nwProto]
     fields to be modified. *)

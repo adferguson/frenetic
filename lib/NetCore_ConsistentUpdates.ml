@@ -18,7 +18,7 @@ let ingressPort pt = Hdr {P.all with P.ptrnInPort = pt}
 
 let strip_policy ver switches extPorts =
   ITE(prOr (List.map (fun sw -> (And(prOr (List.map (fun p -> ingressPort (W.WildcardExact (P.Physical p))) (extPorts sw)), OnSwitch sw))) switches), 
-      Action [SwitchAction {id with outPort = P.Here; outDlVlan = Some (Some ver, None)}], 
+      Action [SwitchAction {id with outPort = P.Here; outDlVlan = Some (Some (Some ver), None)}],
       Action [SwitchAction {id with outPort = P.Here}])
 
 let gen_update_pols orig ver switches extPorts =

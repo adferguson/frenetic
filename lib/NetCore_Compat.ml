@@ -36,8 +36,10 @@ struct
       lst
 
   let unset upd mk lst = match upd with
-    | Some (od,_) ->
+    | Some (Some(od),_) ->
       (mk od) :: lst
+    | Some (None,_) ->
+      lst
     | None ->
       lst
 
@@ -264,8 +266,10 @@ struct
       lst
 
   let unset upd mk lst = match upd with
-    | Some (od,_) ->
+    | Some (Some(od),_) ->
       (mk od) :: lst
+    | Some (None,_) ->
+      lst
     | None ->
       lst
 
@@ -286,9 +290,11 @@ struct
     unset out.outDlSrc (fun x -> SetField (OxmEthSrc (val_to_mask x)))
       (unset out.outDlDst (fun x -> SetField (OxmEthDst (val_to_mask x)))
          ((fun lst -> match out.outDlVlan with
-             | Some (Some vlan, Some x) -> SetField (OxmVlanVId (val_to_mask vlan)) :: lst
+             | Some (Some (Some vlan), Some x) -> SetField (OxmVlanVId (val_to_mask vlan)) :: lst
+             | Some (Some (None), Some x) -> PopVlan :: lst
              | Some (None, Some vlan) -> PopVlan :: lst
-             | Some (Some vlan, None) -> [PushVlan; SetField (OxmVlanVId (val_to_mask vlan))] @ lst
+             | Some (Some (Some vlan), None) -> [PushVlan; SetField (OxmVlanVId (val_to_mask vlan))] @ lst
+             | Some (Some (None), None) -> lst
              | Some (None, None) -> lst
              | None -> lst)
             (unset out.outDlVlanPcp (fun x -> SetField (OxmVlanPcp x))

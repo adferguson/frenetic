@@ -138,31 +138,31 @@ struct
     [ ControllerAction handler ]
 
   let updateDlSrc od nw =
-    [ SwitchAction { unmodified with outDlSrc = Some (od, nw) } ]
+    [ SwitchAction { unmodified with outDlSrc = Some (Some(od), nw) } ]
 
   let updateDlDst od nw =
-    [ SwitchAction { unmodified with outDlDst = Some (od, nw) } ]
+    [ SwitchAction { unmodified with outDlDst = Some (Some(od), nw) } ]
 
   let updateDlVlan od nw =
-    [ SwitchAction { unmodified with outDlVlan = Some (od, nw) } ]
+    [ SwitchAction { unmodified with outDlVlan = Some (Some(od), nw) } ]
 
   let updateDlVlanPcp od nw =
-    [ SwitchAction { unmodified with outDlVlanPcp = Some (od, nw) } ]
+    [ SwitchAction { unmodified with outDlVlanPcp = Some (Some(od), nw) } ]
 
   let updateSrcIP old new_ = 
-    [ SwitchAction { unmodified with outNwSrc = Some (old, new_) } ]
+    [ SwitchAction { unmodified with outNwSrc = Some (Some(old), new_) } ]
 
   let updateDstIP old new_ = 
-    [ SwitchAction { unmodified with outNwDst = Some (old, new_) } ]
+    [ SwitchAction { unmodified with outNwDst = Some (Some(old), new_) } ]
 
   let updateTosIP old new_ = 
-    [ SwitchAction { unmodified with outNwTos = Some (old, new_) } ]
+    [ SwitchAction { unmodified with outNwTos = Some (Some(old), new_) } ]
 
   let updateSrcPort old new_ = 
-    [ SwitchAction { unmodified with outTpSrc = Some (old, new_) } ]
+    [ SwitchAction { unmodified with outTpSrc = Some (Some(old), new_) } ]
 
   let updateDstPort old new_ = 
-    [ SwitchAction { unmodified with outTpDst = Some (old, new_) } ]
+    [ SwitchAction { unmodified with outTpDst = Some (Some(old), new_) } ]
 
   let updatePort new_ =
     [ SwitchAction { unmodified with outPort = new_ } ]
@@ -223,7 +223,9 @@ struct
       pk
 
   let sel f = function
-    | Some p -> let (old, _) = p in f old
+    | Some p -> let (old, _) = p in (match old with
+                  | Some old' -> f old'
+                  | None -> all)
     | None -> all
 
   let domain atom = match atom with
@@ -282,8 +284,10 @@ struct
 
   let seq_mod beq m1 m2 =
     match m1,m2 with
-    | Some (a,b),Some(c,d) ->
+    | Some (a,b),Some(Some(c),d) ->
       if beq b c then Some (Some (a, d)) else None
+    | Some (a,b),Some(None,d) ->
+      Some (Some (a,d))
     | _,None ->
       Some m1
     | None,_ ->

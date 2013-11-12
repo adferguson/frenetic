@@ -20,7 +20,7 @@ type lp = switchId * port * packet
 
 type ptrn = NetCore_Pattern.t
 
-type 'a match_modify = ('a * 'a) option
+type 'a match_modify = ('a option * 'a) option
 
 type output = {
   outDlSrc : dlAddr match_modify;
