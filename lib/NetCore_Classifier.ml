@@ -41,7 +41,7 @@ module Make : MAKE = functor (Action:ACTION) -> struct
     | p :: cf' ->
       let (pat, act) = p in
       if List.exists (fun entry ->
-          let (pat', act0) = entry in pat = pat') prefix
+          let (pat', act0) = entry in NetCore_Pattern.contains pat pat') prefix
       then elim_shadowed_helper prefix cf'
       else elim_shadowed_helper (prefix @ ((pat, act) :: [])) cf'
 
