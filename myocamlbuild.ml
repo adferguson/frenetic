@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 373afc924b5d5ef51e15ff64f0d72e3f) *)
+(* DO NOT EDIT (digest: c54449db400377f734f719d82d031f5d) *)
 module OASISGettext = struct
 (* # 21 "src/oasis/OASISGettext.ml" *)
 
@@ -479,13 +479,36 @@ let package_default =
   {
      MyOCamlbuildBase.lib_ocaml = [("netcore", ["lib"])];
      lib_c = [];
-     flags = [];
+     flags =
+       [
+          (["oasis_library_netcore_ccopt"; "compile"],
+            [
+               (OASISExpr.EBool true,
+                 S
+                   [
+                      A "-ccopt";
+                      A "-g";
+                      A "-ccopt";
+                      A "-ppopt";
+                      A "-ccopt";
+                      A "-lwt-debug";
+                      A "-ccopt";
+                      A "-ppopt -lwt-debug"
+                   ])
+            ]);
+          (["oasis_library_netcore_byte"; "ocaml"; "link"; "byte"],
+            [(OASISExpr.EBool true, S [A "-g"; A "-ppopt"; A "-lwt-debug"])]);
+          (["oasis_library_netcore_byte"; "ocaml"; "ocamldep"; "byte"],
+            [(OASISExpr.EBool true, S [A "-g"; A "-ppopt"; A "-lwt-debug"])]);
+          (["oasis_library_netcore_byte"; "ocaml"; "compile"; "byte"],
+            [(OASISExpr.EBool true, S [A "-g"; A "-ppopt"; A "-lwt-debug"])])
+       ];
      includes = [("test", ["lib"]); ("frenetic", ["lib"])];
      }
   ;;
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default package_default;;
 
-# 490 "myocamlbuild.ml"
+# 513 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch dispatch_default;;
