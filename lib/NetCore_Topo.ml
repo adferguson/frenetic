@@ -54,6 +54,7 @@ module Make (A : Arg) = struct
       dlSrc = 0xffffffffffffL;
       dlDst = 0xffffffffffffL;
       dlVlan = None;
+      dlVlanDei = false;
       dlVlanPcp = 0;
       nw = Unparsable 
           (dl_typ, Cstruct.of_string (Marshal.to_string (sw, pt) []))

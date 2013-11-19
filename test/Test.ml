@@ -179,6 +179,7 @@ module TestClassifier = struct
     dlSrc = 0L;
     dlDst = 0L;
     dlVlan = None;
+    dlVlanDei = false;
     dlVlanPcp = 0;
     nw = Unparsable (0, Cstruct.create 8) 
   }
@@ -449,12 +450,14 @@ module Helper = struct
        ; chksum = 0 (* TODO(cole) generate checksum. *)
        ; src = 0l
        ; dst = 0l
+       ; options = Cstruct.create 0
        ; tp = in_tp }
 
   let in_pkt =
     { dlSrc = Int64.zero
     ; dlDst = Int64.zero
     ; dlVlan = None
+    ; dlVlanDei = false
     ; dlVlanPcp = 0
     ; nw = in_nw }
 
