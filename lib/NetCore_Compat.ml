@@ -101,10 +101,10 @@ struct
     else
       not_controller_atoms
 
-  let to_rule (pattern, action) =
+  let to_rule (prio, pattern, action) =
     match NetCore_Pattern.to_match0x01 pattern with
     | Some match_ ->
-      Some (match_,
+      Some (prio, match_,
             as_actionSequence
               (match match_.OpenFlow0x01_Core.inPort with
                | None -> None
@@ -112,10 +112,44 @@ struct
               action)
     | None -> None
 
+
+  let prioritized_table table =
+
+    let is_overlapped = fun (p1, _) (p2, _) ->
+                            not (NetCore_Pattern.is_empty (NetCore_Pattern.inter p1 p2)) in
+
+    let split = fun hd group -> try ignore(List.find (is_overlapped hd) group); true
+                                with Not_found -> false in
+
+    let rec merge_priority = (fun group lst ->
+                              match lst with
+                              | [] -> (group, [])
+                              | _  -> if (split (List.hd lst) group)
+                                      then (group, lst)
+                                      else merge_priority ([(List.hd lst)] @ group) (List.tl lst)) in
+
+    let rec group_by_priority = (fun lst ->
+                                 match merge_priority [] lst with
+                                 | ([], []) -> []
+                                 | (group, []) -> [group]
+                                 | (group, lst') -> [group] @ (group_by_priority lst')) in
+
+    let groups = group_by_priority table in
+
+    let prio = ref 65536 in
+    let prioritized_groups = List.map (fun group -> (decr prio; (!prio, group))) groups in
+
+    let attach_priority = fun prio (pattern, action) -> (prio, pattern, action) in
+    List.concat(List.map
+                (fun (prio, group) -> List.map (attach_priority prio) group)
+                prioritized_groups)
+
+
   let flow_table_of_policy sw pol0 =
+    let table = NetCoreCompiler.compile_pol pol0 sw in
     List.fold_right
       (fun p acc -> match to_rule p with None -> acc | Some r -> r::acc)
-      (NetCoreCompiler.compile_pol pol0 sw)
+      (prioritized_table table)
       []
 end
 

@@ -311,12 +311,11 @@ module Make  = struct
     (* BASUS: ignore (NetCore_Monitoring.monitor_tbl sw pol); *)
     lwt flow_table = Lwt.wrap2 Compat.flow_table_of_policy sw pol in
     Platform.send_to_switch sw 0l (Message.FlowModMsg delete_all_flows) >>
-    let prio = ref 65535 in
     Lwt_list.iter_s
-      (fun (match_, actions) ->
+      (fun (prio, match_, actions) ->
          Platform.send_to_switch sw 0l 
-           (Message.FlowModMsg (add_flow !prio match_ actions)) >>
-         (decr prio; Lwt.return ()))
+           (Message.FlowModMsg (add_flow prio match_ actions)) >>
+         Lwt.return ())
       flow_table
 
   let install_new_policies sw pol_stream =
@@ -499,20 +498,19 @@ module MakeConsistent = struct
        in sequence w/o clearing results in multiple such rules, possibly
        messing up semantics w/ they overlap/shadow real rules. Instead,
        default drop rule should be installed at bottom priority *)
-    lwt flow_table, drop_rule = 
+    lwt flow_table, (_, drop_match, drop_action) = 
       Lwt.wrap1 pop_last (Compat.flow_table_of_policy sw pol) in
-    let prio = ref 65535 in
     Lwt_list.iter_s
-      (fun (match_, actions) ->
+      (fun (prio, match_, actions) ->
          printf " %s => %s\n%!"
            (OpenFlow0x01.Match.to_string match_)
            (OpenFlow0x01.Action.sequence_to_string actions);
          Platform.send_to_switch sw 0l 
-           (Message.FlowModMsg (add_flow !prio match_ actions)) >>
-         (decr prio; Lwt.return ()))
+           (Message.FlowModMsg (add_flow prio match_ actions)) >>
+         Lwt.return ())
       flow_table >>
     Platform.send_to_switch sw 0l 
-      (Message.FlowModMsg (add_flow 1 (fst drop_rule) (snd drop_rule)))
+      (Message.FlowModMsg (add_flow 1 drop_match drop_action))
 
   let send_barrier (sw : switchId) (xid : xid) : unit Lwt.t =
     Log.info_f "In send_barrier\n%!" >>

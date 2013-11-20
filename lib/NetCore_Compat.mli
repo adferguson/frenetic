@@ -11,7 +11,7 @@ sig
 
   val as_actionSequence : NetCore_Types.portId option -> NetCore_Types.action_atom list -> OpenFlow0x01_Core.action list
 
-  val flow_table_of_policy : NetCore_Types.switchId -> NetCore_Types.pol -> (OpenFlow0x01_Core.pattern * OpenFlow0x01_Core.action list) list
+  val flow_table_of_policy : NetCore_Types.switchId -> NetCore_Types.pol -> (Packet.int16 * OpenFlow0x01_Core.pattern * OpenFlow0x01_Core.action list) list
 end
 
 module Compat0x04 :
