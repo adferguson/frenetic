@@ -381,6 +381,17 @@ module Make  = struct
       | PortStatusMsg msg ->
         (* TODO(arjun): this should be used by NetCore_Topo *)
         Lwt.return ()
+      | ErrorMsg e ->
+        Printf.printf "\n\nOpenFlow ERROR MESSAGE: %s\n\n\n%!"
+          (Error.to_string e);
+        Lwt.return ()
+      | ConfigReplyMsg msg ->
+        Printf.printf "Unhandled OpenFlow Config Reply Message: %s\n%!"
+          (ConfigReply.to_string msg);
+        Lwt.return ()
+      | VendorMsg buf ->
+        Printf.printf "Unhandled OpenFlow Vendor Message\n%!";
+        Lwt.return ()
       | _ -> Lwt.return () in
     handle_switch_messages pol sw
 
