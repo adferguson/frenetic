@@ -113,10 +113,54 @@ struct
     | None -> None
 
 
-  let prioritized_table table =
+  let pa_printer = fun (p, a) -> Printf.printf "%s -> %s\n%!" (NetCore_Pretty.string_of_pattern p)
+                                                         (NetCore_Pretty.string_of_action a)
 
-    let is_overlapped = fun (p1, _) (p2, _) ->
-                            not (NetCore_Pattern.is_empty (NetCore_Pattern.inter p1 p2)) in
+  let is_overlapped = fun (p1, _) (p2, _) ->
+                          not (NetCore_Pattern.is_empty (NetCore_Pattern.inter p1 p2));;
+
+  (* Sorts a table to minimize the number of priorites which will be needed
+   *
+   * Input: A table already topologically-sorted
+   * Output: Same table, with order respected, but with transitions grouped
+   *
+   * We are effectively interested in the BFS-based topological sort, but we will
+   * need to do an O(N^2) pass over the flow table to infer all of the dependencies
+   *)
+  let sorted_table table =
+
+    (* To start, we find the maximum "depth" of each rule. Depth is defined:
+     * - A rule with no overlapping rules preceeding it in the flow table
+     *   is at depth 0.
+     * - Otherwise, a rule's depth is 1 + the maximum depth of all rules
+     *   prceedign it in the flow table which it intersects/overlaps
+     *)
+
+    let overlap_max = fun cur_flow cur_max (depth, flow) ->
+      if is_overlapped flow cur_flow then max cur_max depth
+      else cur_max in
+
+    let rec compute_depths = function
+      | [] -> []
+      | (_, flow) :: l -> let depths = compute_depths l in
+                          let max_depth = List.fold_left (overlap_max flow) (-1) depths in
+                          (1 + max_depth, flow) :: depths in
+
+    let attach_default_depth = fun f -> (-1, f) in
+    let remove_depth = fun (depth, f) -> f in
+
+    let depth_table = List.map attach_default_depth (List.rev table) in
+    let depth_table' = List.rev (compute_depths depth_table) in
+
+    (* Now that we have determined the maximum "depth" of each rule in the
+     * flow table, stably re-sort by depth to minimize the number of priority
+     * transitions *)
+    let sorted_table = List.stable_sort (fun (d1, _) (d2, _) -> compare d1 d2)
+                                        depth_table' in
+    List.map remove_depth sorted_table
+
+  (* Assigns priorities to rules to resolve overlaps *)
+  let prioritized_table table =
 
     let split = fun hd group -> try ignore(List.find (is_overlapped hd) group); true
                                 with Not_found -> false in
@@ -124,15 +168,16 @@ struct
     let rec merge_priority = (fun group lst ->
                               match lst with
                               | [] -> (group, [])
-                              | _  -> if (split (List.hd lst) group)
+                              | _  -> let hd = List.hd lst in
+                                      if (split hd group)
                                       then (group, lst)
-                                      else merge_priority ([(List.hd lst)] @ group) (List.tl lst)) in
+                                      else merge_priority (hd :: group) (List.tl lst)) in
 
     let rec group_by_priority = (fun lst ->
                                  match merge_priority [] lst with
                                  | ([], []) -> []
                                  | (group, []) -> [group]
-                                 | (group, lst') -> [group] @ (group_by_priority lst')) in
+                                 | (group, lst') -> group :: (group_by_priority lst')) in
 
     let groups = group_by_priority table in
 
@@ -146,7 +191,8 @@ struct
 
 
   let flow_table_of_policy sw pol0 =
-    let table = NetCoreCompiler.compile_pol pol0 sw in
+    let table = sorted_table (NetCoreCompiler.compile_pol pol0 sw) in
+    List.map pa_printer table;
     List.fold_right
       (fun p acc -> match to_rule p with None -> acc | Some r -> r::acc)
       (prioritized_table table)
