@@ -129,11 +129,13 @@ struct
    *)
   let sorted_table table =
 
-    (* To start, we find the maximum "depth" of each rule. Depth is defined:
+    (* To start, we annotate each rule with its "depth". Depth is defined as:
      * - A rule with no overlapping rules preceeding it in the flow table
      *   is at depth 0.
      * - Otherwise, a rule's depth is 1 + the maximum depth of all rules
-     *   prceedign it in the flow table which it intersects/overlaps
+     *   preceeding it in the flow table which it intersects/overlaps
+     * In other words, depth is the length of the longest sequence of
+     * intersecting rules ending at this rule.
      *)
 
     let overlap_max = fun cur_flow cur_max (depth, flow) ->
@@ -142,24 +144,24 @@ struct
 
     let rec compute_depths = function
       | [] -> []
-      | (_, flow) :: l -> let depths = compute_depths l in
-                          let max_depth = List.fold_left (overlap_max flow) (-1) depths in
-                          (1 + max_depth, flow) :: depths in
+      | flow :: l -> let depths = compute_depths l in
+                     let max_depth = List.fold_left (overlap_max flow) (-1) depths in
+                     (1 + max_depth, flow) :: depths in
 
-    let attach_default_depth = fun f -> (-1, f) in
-    let remove_depth = fun (depth, f) -> f in
-
-    let depth_table = List.map attach_default_depth (List.rev table) in
-    let depth_table' = List.rev (compute_depths depth_table) in
+    let depth_table = List.rev (compute_depths (List.rev table)) in
 
     (* Now that we have determined the maximum "depth" of each rule in the
      * flow table, stably re-sort by depth to minimize the number of priority
-     * transitions *)
+     * transitions, and then drop the depth annotations. *)
     let sorted_table = List.stable_sort (fun (d1, _) (d2, _) -> compare d1 d2)
-                                        depth_table' in
-    List.map remove_depth sorted_table
+                                        depth_table in
+    List.map (fun (depth, f) -> f) sorted_table
 
-  (* Assigns priorities to rules to resolve overlaps *)
+
+  (* Assigns priorities to rules to resolve overlaps. Sequences of
+   * non-overlapping rules ("groups" in the code below) will be assigned
+   * the same priority.
+   *)
   let prioritized_table table =
 
     let split = fun hd group -> try ignore(List.find (is_overlapped hd) group); true
