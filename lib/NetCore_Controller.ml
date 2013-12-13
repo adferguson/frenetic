@@ -305,27 +305,48 @@ end
 
 module Make  = struct
 
+  open Compat
+
   module Queries = QuerySet
 
-  let configure_switch (sw : switchId) (pol : pol) : unit Lwt.t =
+  let configure_switch (sw : switchId) (pol : pol)
+                       (old_flow_table : PrioritizedFlowTable.t):
+                       PrioritizedFlowTable.t Lwt.t =
+
     (* BASUS: ignore (NetCore_Monitoring.monitor_tbl sw pol); *)
-    lwt flow_table = Lwt.wrap2 Compat.flow_table_of_policy sw pol in
-    Platform.send_to_switch sw 0l (Message.FlowModMsg delete_all_flows) >>
+    lwt flow_table = Lwt.wrap2 flow_table_of_policy sw pol in
+
+    let added = PrioritizedFlowTable.diff flow_table old_flow_table in
+    let removed = PrioritizedFlowTable.diff old_flow_table flow_table in
+
     Lwt_list.iter_s
       (fun pft ->
          Platform.send_to_switch sw 0l 
-           (Message.FlowModMsg (add_flow pft.Compat.PrioritizedFlow.prio
-                                         pft.Compat.PrioritizedFlow.pattern
-                                         pft.Compat.PrioritizedFlow.actions)) >>
+           (Message.FlowModMsg (add_flow pft.PrioritizedFlow.prio
+                                         pft.PrioritizedFlow.pattern
+                                         pft.PrioritizedFlow.actions)) >>
          Lwt.return ())
-      (Compat.PrioritizedFlowTable.elements flow_table)
+      (PrioritizedFlowTable.elements added) >>
+    Lwt_list.iter_s
+      (fun pft ->
+         Platform.send_to_switch sw 0l
+           (Message.FlowModMsg (delete_flow_strict pft.PrioritizedFlow.prio
+                                         pft.PrioritizedFlow.pattern
+                                         None)) >>
+         Lwt.return ())
+      (PrioritizedFlowTable.elements removed) >>
+    Lwt.return flow_table
 
   let install_new_policies sw pol_stream =
-    Lwt_stream.iter_s (configure_switch sw)
+    (* Clear flow table at start, then do delta updates *)
+    Platform.send_to_switch sw 0l (Message.FlowModMsg delete_all_flows) >>
+    Lwt_stream.fold_s (configure_switch sw)
       (NetCore_Stream.to_stream pol_stream)
+      PrioritizedFlowTable.empty >>
+    Lwt.return ()
 
   let handle_packet_in pol sw pkt_in = 
-    let in_port = Compat.to_nc_portId pkt_in.port in
+    let in_port = to_nc_portId pkt_in.port in
     try_lwt
       let pol = NetCore_Stream.now pol in
       let in_packet = parse_payload pkt_in.input_payload in
@@ -363,7 +384,7 @@ module Make  = struct
         { output_payload = pkt_in.input_payload
         ; port_id = None
         ; apply_actions = 
-            Compat.as_actionSequence (Some in_port) action
+            as_actionSequence (Some in_port) action
         } in
       Platform.send_to_switch sw 0l (Message.PacketOutMsg out_payload)  
     with Unparsable _ -> 
@@ -404,7 +425,7 @@ module Make  = struct
     let _ = Queries.add_switch sw in
     (try_lwt
        lwt _ = Lwt.wrap2 NetCore_Semantics.handle_switch_events
-           (SwitchUp (sw, Compat.to_nc_features features))
+           (SwitchUp (sw, to_nc_features features))
            (NetCore_Stream.now pol_stream) in
        Lwt.pick [ install_new_policies sw pol_stream;
                   handle_switch_messages pol_stream sw ]
@@ -442,7 +463,7 @@ module Make  = struct
       let msg = {
         output_payload = NotBuffered bytes;
         port_id = None;
-        apply_actions = [Output (PhysicalPort (Compat.to_of_portId pt))]
+        apply_actions = [Output (PhysicalPort (to_of_portId pt))]
       } in
       Platform.send_to_switch sw 0l (Message.PacketOutMsg msg) in
     Lwt_stream.iter_s emit_pkt pkt_stream
@@ -464,6 +485,8 @@ let start_controller = Make.start_controller
 module MakeConsistent = struct
 
   open NetCore_ConsistentUpdates
+  open Compat
+
   module Queries = QuerySet
 
   let all_internal_pols_installed = Lwt_condition.create ()
@@ -512,19 +535,19 @@ module MakeConsistent = struct
        messing up semantics w/ they overlap/shadow real rules. Instead,
        default drop rule should be installed at bottom priority *)
     lwt flow_table, pft =
-      Lwt.wrap1 pop_last (Compat.PrioritizedFlowTable.elements
-                          (Compat.flow_table_of_policy sw pol)) in
+      Lwt.wrap1 pop_last (PrioritizedFlowTable.elements
+                          (flow_table_of_policy sw pol)) in
     let drop_match = pft.Compat.PrioritizedFlow.pattern in
     let drop_action = pft.Compat.PrioritizedFlow.actions in
     Lwt_list.iter_s
       (fun pft ->
          printf " %s => %s\n%!"
-           (OpenFlow0x01.Match.to_string pft.Compat.PrioritizedFlow.pattern)
-           (OpenFlow0x01.Action.sequence_to_string pft.Compat.PrioritizedFlow.actions);
+           (OpenFlow0x01.Match.to_string pft.PrioritizedFlow.pattern)
+           (OpenFlow0x01.Action.sequence_to_string pft.PrioritizedFlow.actions);
          Platform.send_to_switch sw 0l 
-           (Message.FlowModMsg (add_flow pft.Compat.PrioritizedFlow.prio
-                                         pft.Compat.PrioritizedFlow.pattern
-                                         pft.Compat.PrioritizedFlow.actions)) >>
+           (Message.FlowModMsg (add_flow pft.PrioritizedFlow.prio
+                                         pft.PrioritizedFlow.pattern
+                                         pft.PrioritizedFlow.actions)) >>
          Lwt.return ())
       flow_table >>
     Platform.send_to_switch sw 0l 
@@ -600,14 +623,14 @@ module MakeConsistent = struct
   let switch_thread features pol_stream topo =
     let open SwitchFeatures in
     let sw = features.switch_id in
-    let ports = List.map (fun x -> Compat.to_nc_portId x.PortDescription.port_no) features.ports in
+    let ports = List.map (fun x -> to_nc_portId x.PortDescription.port_no) features.ports in
     (* MJR: Is this racy? What is the lwt concurrency semantics? *)
     Queries.add_switch sw;
     current_switches := SwitchSet.add sw !current_switches;
     (try_lwt
        let (int_pol,ext_pol) = NetCore_Stream.now pol_stream in
        lwt _ = Lwt.wrap2 NetCore_Semantics.handle_switch_events
-           (SwitchUp (sw, Compat.to_nc_features features)) (Union(int_pol,ext_pol))
+           (SwitchUp (sw, to_nc_features features)) (Union(int_pol,ext_pol))
        in
        Lwt.pick [ install_new_policies sw ports pol_stream;
                   handle_switch_messages sw ]

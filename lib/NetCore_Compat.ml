@@ -135,10 +135,6 @@ struct
               action}
     | None -> None
 
-
-  let pa_printer = fun (p, a) -> Printf.printf "%s -> %s\n%!" (NetCore_Pretty.string_of_pattern p)
-                                                         (NetCore_Pretty.string_of_action a)
-
   let is_overlapped = fun (p1, _) (p2, _) ->
                           not (NetCore_Pattern.is_empty (NetCore_Pattern.inter p1 p2));;
 
@@ -217,7 +213,6 @@ struct
 
   let flow_table_of_policy sw pol0 =
     let table = sorted_table (NetCoreCompiler.compile_pol pol0 sw) in
-    List.map pa_printer table;
     List.fold_right
       (fun p acc -> match to_rule p with None -> acc | Some r -> PrioritizedFlowTable.add r acc)
       (prioritized_table table)
