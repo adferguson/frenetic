@@ -8,6 +8,29 @@ struct
   open NetCore_Types
   module NetCoreCompiler = NetCore_Compiler.NetCoreCompiler
 
+  module PrioritizedFlow = struct
+
+    type t =
+      { prio : Packet.int16
+      ; pattern : OpenFlow0x01_Core.pattern (* = OpenFlow0x01.Match.t *)
+      ; actions : OpenFlow0x01_Core.action list
+      }
+
+    let compare x y =
+      let prio_cmp = Pervasives.compare x.prio y.prio in
+      if prio_cmp != 0 then
+        prio_cmp
+      else
+        let pattern_cmp = Pervasives.compare x.pattern y.pattern in
+        if pattern_cmp != 0 then
+          pattern_cmp
+        else
+          Pervasives.compare x.actions y.actions
+
+  end
+
+  module PrioritizedFlowTable = Set.Make (PrioritizedFlow)
+
   let to_of_portId = Int32.to_int
   let to_nc_portId = Int32.of_int
 
@@ -104,12 +127,12 @@ struct
   let to_rule (prio, pattern, action) =
     match NetCore_Pattern.to_match0x01 pattern with
     | Some match_ ->
-      Some (prio, match_,
-            as_actionSequence
+      Some {PrioritizedFlow.prio = prio; pattern = match_;
+            actions = as_actionSequence
               (match match_.OpenFlow0x01_Core.inPort with
                | None -> None
                | Some foo -> Some (to_nc_portId foo))
-              action)
+              action}
     | None -> None
 
 
@@ -196,9 +219,9 @@ struct
     let table = sorted_table (NetCoreCompiler.compile_pol pol0 sw) in
     List.map pa_printer table;
     List.fold_right
-      (fun p acc -> match to_rule p with None -> acc | Some r -> r::acc)
+      (fun p acc -> match to_rule p with None -> acc | Some r -> PrioritizedFlowTable.add r acc)
       (prioritized_table table)
-      []
+      PrioritizedFlowTable.empty
 end
 
 module Compat0x04 =

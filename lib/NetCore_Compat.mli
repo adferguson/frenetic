@@ -1,5 +1,20 @@
 module Compat0x01 :
 sig
+
+  module PrioritizedFlow : sig
+
+    type t =
+      { prio : Packet.int16
+      ; pattern : OpenFlow0x01_Core.pattern
+      ; actions : OpenFlow0x01_Core.action list
+      }
+
+    val compare : t -> t -> int
+
+  end
+
+  module PrioritizedFlowTable : Set.S with type elt = PrioritizedFlow.t
+
   val to_of_portId : NetCore_Types.portId -> OpenFlow0x01.portId
   val to_nc_portId : OpenFlow0x01.portId -> NetCore_Types.portId
 
@@ -11,7 +26,7 @@ sig
 
   val as_actionSequence : NetCore_Types.portId option -> NetCore_Types.action_atom list -> OpenFlow0x01_Core.action list
 
-  val flow_table_of_policy : NetCore_Types.switchId -> NetCore_Types.pol -> (Packet.int16 * OpenFlow0x01_Core.pattern * OpenFlow0x01_Core.action list) list
+  val flow_table_of_policy : NetCore_Types.switchId -> NetCore_Types.pol -> PrioritizedFlowTable.t
 end
 
 module Compat0x04 :

@@ -312,11 +312,13 @@ module Make  = struct
     lwt flow_table = Lwt.wrap2 Compat.flow_table_of_policy sw pol in
     Platform.send_to_switch sw 0l (Message.FlowModMsg delete_all_flows) >>
     Lwt_list.iter_s
-      (fun (prio, match_, actions) ->
+      (fun pft ->
          Platform.send_to_switch sw 0l 
-           (Message.FlowModMsg (add_flow prio match_ actions)) >>
+           (Message.FlowModMsg (add_flow pft.Compat.PrioritizedFlow.prio
+                                         pft.Compat.PrioritizedFlow.pattern
+                                         pft.Compat.PrioritizedFlow.actions)) >>
          Lwt.return ())
-      flow_table
+      (Compat.PrioritizedFlowTable.elements flow_table)
 
   let install_new_policies sw pol_stream =
     Lwt_stream.iter_s (configure_switch sw)
@@ -509,15 +511,20 @@ module MakeConsistent = struct
        in sequence w/o clearing results in multiple such rules, possibly
        messing up semantics w/ they overlap/shadow real rules. Instead,
        default drop rule should be installed at bottom priority *)
-    lwt flow_table, (_, drop_match, drop_action) = 
-      Lwt.wrap1 pop_last (Compat.flow_table_of_policy sw pol) in
+    lwt flow_table, pft =
+      Lwt.wrap1 pop_last (Compat.PrioritizedFlowTable.elements
+                          (Compat.flow_table_of_policy sw pol)) in
+    let drop_match = pft.Compat.PrioritizedFlow.pattern in
+    let drop_action = pft.Compat.PrioritizedFlow.actions in
     Lwt_list.iter_s
-      (fun (prio, match_, actions) ->
+      (fun pft ->
          printf " %s => %s\n%!"
-           (OpenFlow0x01.Match.to_string match_)
-           (OpenFlow0x01.Action.sequence_to_string actions);
+           (OpenFlow0x01.Match.to_string pft.Compat.PrioritizedFlow.pattern)
+           (OpenFlow0x01.Action.sequence_to_string pft.Compat.PrioritizedFlow.actions);
          Platform.send_to_switch sw 0l 
-           (Message.FlowModMsg (add_flow prio match_ actions)) >>
+           (Message.FlowModMsg (add_flow pft.Compat.PrioritizedFlow.prio
+                                         pft.Compat.PrioritizedFlow.pattern
+                                         pft.Compat.PrioritizedFlow.actions)) >>
          Lwt.return ())
       flow_table >>
     Platform.send_to_switch sw 0l 
