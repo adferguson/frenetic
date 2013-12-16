@@ -25,7 +25,7 @@ Library netcore
     cstruct,
     lwt.syntax,
     str,
-    packet,openflow
+    packet,openflow,openflow.lwt
   InternalModules:
     Frenetic_List,
     NetCore_Action,
