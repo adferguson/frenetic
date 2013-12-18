@@ -1,5 +1,6 @@
 type 'a wildcard = 
   | WildcardExact of 'a
+  | WildcardPartial of 'a * 'a
   | WildcardAll
   | WildcardNone
 
@@ -19,6 +20,7 @@ module type Wildcard = sig
   val is_empty : t -> bool
   val is_exact : t -> bool
   val to_option : t -> a option option
+  val to_masked_option : t -> a OpenFlow0x01_Core.mask option option
 end
 
 module type OrderedType = sig

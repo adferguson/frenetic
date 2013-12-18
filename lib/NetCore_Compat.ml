@@ -342,8 +342,10 @@ struct
          | Some None -> [OxmVlanVId {m_value=0; m_mask=None}])
      (* VlanPCP requires exact non-VLAN_NONE match on Vlan *)
      @ (match (dlVlanPcp, dlVlan) with (Some a, Some _) -> [ OxmVlanPcp a] | _ -> [])
-     @ (match nwSrc with Some a -> [ OxmIP4Src (val_to_mask a)] | _ -> [])
-     @ (match nwDst with Some a -> [ OxmIP4Dst (val_to_mask a)] | _ -> [])
+     @ (match nwSrc with Some a -> [ OxmIP4Src ({m_value = a.OpenFlow0x01_Core.m_value;
+                                                 m_mask = a.OpenFlow0x01_Core.m_mask}) ] | _ -> [])
+     @ (match nwDst with Some a -> [ OxmIP4Dst ({m_value = a.OpenFlow0x01_Core.m_value;
+                                                 m_mask = a.OpenFlow0x01_Core.m_mask})] | _ -> [])
      @ (match inPort with Some p -> [OxmInPort (Int32.of_int p)] | _ -> []),
      (* If IP addrs are set, must be IP EthType. Predicate not currently in compiler *)
      (* @ (match (nwSrc, nwDst) with  *)
