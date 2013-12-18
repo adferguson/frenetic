@@ -25,6 +25,12 @@ end
 module type OrderedType = sig
   type t 
   val compare : t -> t -> int
+
+  (* compare two (value, mask) pairs *)
+  val masked_inter : t * t -> t * t -> (t * t) option
+  (* returns the value representing "zero" to faciliate
+     comparison between WildcardExact and WilcardPartial *)
+  val zero : t
 end
 
 module Make (Ord : OrderedType) = struct
@@ -33,21 +39,32 @@ module Make (Ord : OrderedType) = struct
 
   type t = a wildcard
 
-  (* TODO(adf): update for WildcardPartial *)
   let is_equal x y = match (x, y) with
     | WildcardExact a, WildcardExact b -> Ord.compare a b = 0
     | WildcardAll, WildcardAll -> true
     | WildcardNone, WildcardNone -> true
+    | WildcardPartial (v1, m1), WildcardPartial (v2, m2) ->
+        (Ord.compare v1 v2 = 0) && (Ord.compare m1 m2 = 0)
     | _ -> false
 
-  (* TODO(adf): update for WildcardPartial *)
   let contains x y = match (x, y) with
     | WildcardNone, _ -> true
     | _, WildcardAll -> true
     | WildcardExact a, WildcardExact b -> Ord.compare a b = 0
+    | WildcardPartial (v, m), WildcardExact b ->
+      (match Ord.masked_inter (v, m) (b, Ord.zero) with
+         | Some _ -> true
+         | None -> false)
+    | WildcardExact a, WildcardPartial (v, m) ->
+      (match Ord.masked_inter (a, Ord.zero) (v, m) with
+         | Some _ -> true
+         | None -> false)
+    | WildcardPartial (v1, m1), WildcardPartial (v2, m2) ->
+      (match Ord.masked_inter (v1, m1) (v2, m2) with
+         | Some (m, v) -> true
+         | None -> false)
     | _ -> false
 
-  (* TODO(adf): update for WildcardPartial *)
   let inter x y = match (x, y) with
     | WildcardNone, _ -> WildcardNone
     | _, WildcardNone -> WildcardNone
@@ -58,6 +75,18 @@ module Make (Ord : OrderedType) = struct
         WildcardExact b
       else 
         WildcardNone
+    | WildcardPartial (v, m), WildcardExact b ->
+      (match Ord.masked_inter (v, m) (b, Ord.zero) with
+         | Some _ -> WildcardExact b
+         | None -> WildcardNone)
+    | WildcardExact a, WildcardPartial (v, m) ->
+      (match Ord.masked_inter (a, Ord.zero) (v, m) with
+         | Some _ -> WildcardExact a
+         | None -> WildcardNone)
+    | WildcardPartial (v1, m1), WildcardPartial (v2, m2) ->
+      (match Ord.masked_inter (v1, m1) (v2, m2) with
+         | Some (m, v) -> WildcardPartial (m, v)
+         | None -> WildcardNone)
 
   let is_all x = match x with
     | WildcardAll -> true
@@ -74,6 +103,7 @@ module Make (Ord : OrderedType) = struct
 
   let to_option x = match x with
     | WildcardAll -> Some None
+    | WildcardPartial (v, m) -> failwith "invalid"
     | WildcardExact a -> Some (Some a)
     | WildcardNone -> None
 

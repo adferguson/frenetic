@@ -315,6 +315,7 @@ struct
   let wildcard_to_mask wc def =
     match wc with
     | WildcardExact a -> val_to_mask a
+    | WildcardPartial (v, m) -> {m_value = v; m_mask = Some m}
     | WildcardAll -> {m_value = def; m_mask = Some def}
     | WildcardNone -> {m_value = def; m_mask = Some def}
 

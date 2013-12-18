@@ -26,6 +26,12 @@ end
 module type OrderedType = sig
   type t 
   val compare : t -> t -> int
+
+  (* intersect two (value, mask) pairs *)
+  val masked_inter : t * t -> t * t -> (t * t) option
+  (* returns the value representing "zero" to faciliate
+     comparison between WildcardExact and WilcardPartial *)
+  val zero : t
 end
 
 module Make : functor (Ord : OrderedType) -> Wildcard 

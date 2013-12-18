@@ -38,6 +38,9 @@ module PortOrderedType = struct
     | Queue (pid, qid) -> 
       Format.sprintf "Queue %ld %ld" pid qid
 
+  let masked_inter (v1, m1) (v2, m2) = failwith "unsupported"
+  let zero = Physical 0l
+
 end
 
 module DlVlanOrderedType = struct
@@ -52,14 +55,38 @@ module DlVlanOrderedType = struct
   let to_string x = match x with
     | Some n -> "Some " ^ string_of_int n
     | None -> "None"
+
+  let masked_inter (v1, m1) (v2, m2) = failwith "unsupported"
+  let zero = None
 end
 
-module Int64Wildcard = NetCore_Wildcard.Make (Int64)
-module Int32Wildcard = NetCore_Wildcard.Make (Int32)
+module Int64Wildcard = NetCore_Wildcard.Make (struct
+    type t = Int64.t
+    let compare = Int64.compare
+    let to_string n = Int64.to_string n
+    let masked_inter (v1, m1) (v2, m2) = None
+    let zero = Int64.zero
+  end)
+module Int32Wildcard = NetCore_Wildcard.Make (struct
+    type t = Int32.t
+    let compare = Int32.compare
+    let to_string n = Int32.to_string n
+    let masked_inter (v1, m1) (v2, m2) =
+      let max_mask = max (Int32.to_int m1) (Int32.to_int m2) in
+      let v1s = Int32.shift_right_logical v1 max_mask in
+      let v2s = Int32.shift_right_logical v2 max_mask in
+      if v1s = v2s
+      then if m1 < m2 then Some (v1, m1) else Some (v2, m2)
+      else None
+
+    let zero = Int32.zero
+  end)
 module IntWildcard =  NetCore_Wildcard.Make (struct
     type t = int
     let compare = Pervasives.compare
     let to_string n = string_of_int n
+    let masked_inter (v1, m1) (v2, m2) = None
+    let zero = 0
   end)
 
 module DlAddrWildcard = Int64Wildcard
