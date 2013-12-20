@@ -9,7 +9,7 @@ type portId = int32
 type queueId = int32
 
 let string_of_portId pid = Printf.sprintf "%ld" pid
-let string_of_switchId swid = Printf.sprintf "%Ld" swid
+let string_of_switchId swid = Printf.sprintf "0x%Lx" swid
 let string_of_queueId pid = Printf.sprintf "%ld" pid
 
 type 'a wildcard = 'a NetCore_Wildcard.wildcard
