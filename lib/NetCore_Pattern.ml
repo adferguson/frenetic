@@ -64,7 +64,7 @@ module Int64Wildcard = NetCore_Wildcard.Make (struct
     type t = Int64.t
     let compare = Int64.compare
     let to_string n = Int64.to_string n
-    let masked_inter (v1, m1) (v2, m2) = None
+    let masked_inter (v1, m1) (v2, m2) = failwith "not implemented"
     let zero = Int64.zero
   end)
 module Int32Wildcard = NetCore_Wildcard.Make (struct
@@ -85,7 +85,7 @@ module IntWildcard =  NetCore_Wildcard.Make (struct
     type t = int
     let compare = Pervasives.compare
     let to_string n = string_of_int n
-    let masked_inter (v1, m1) (v2, m2) = None
+    let masked_inter (v1, m1) (v2, m2) = failwith "not implemented"
     let zero = 0
   end)
 

@@ -52,16 +52,14 @@ module Make (Ord : OrderedType) = struct
     | _, WildcardAll -> true
     | WildcardExact a, WildcardExact b -> Ord.compare a b = 0
     | WildcardPartial (v, m), WildcardExact b ->
-      (match Ord.masked_inter (v, m) (b, Ord.zero) with
-         | Some _ -> true
-         | None -> false)
+      (Ord.compare v b = 0) && (Ord.compare m Ord.zero = 0)
     | WildcardExact a, WildcardPartial (v, m) ->
       (match Ord.masked_inter (a, Ord.zero) (v, m) with
          | Some _ -> true
          | None -> false)
     | WildcardPartial (v1, m1), WildcardPartial (v2, m2) ->
       (match Ord.masked_inter (v1, m1) (v2, m2) with
-         | Some (m, v) -> true
+         | Some (v, m) -> (Ord.compare v1 v = 0) && (Ord.compare m1 m = 0)
          | None -> false)
     | _ -> false
 
