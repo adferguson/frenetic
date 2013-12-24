@@ -381,7 +381,8 @@ module Make  = struct
           (List.map (NetCore_Action.Output.make_transformer in_val)
              new_out_vals) in
 
-      (* Corresponds to LeaveBufferedAction *)
+      (* Corresponds to LeaveBufferedAction -- the policy has left us
+        * with a single, untransformed output packet. *)
       let leave_buffered = List.length action = 0 &&
                            List.length new_out_vals = 1 in
 
