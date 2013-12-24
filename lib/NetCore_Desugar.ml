@@ -5,7 +5,7 @@ module NCT = NetCore_Types
 module P = NetCore_Pattern
 
 type get_packet_handler = 
-    OpenFlow0x01.switchId -> NCT.port -> packet -> NCT.action
+    OpenFlow0x01.switchId -> NCT.port -> packet -> int32 option -> NCT.action
 type get_count_handler = Int64.t -> Int64.t -> unit
 
 type predicate =

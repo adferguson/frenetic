@@ -3,7 +3,7 @@ open Packet
 open List
 
 type get_packet_handler = 
-    OpenFlow0x01.switchId -> port -> packet -> action
+    OpenFlow0x01.switchId -> port -> packet -> int32 option -> action
 type get_count_handler = Int64.t -> Int64.t -> unit
 
 type predicate =

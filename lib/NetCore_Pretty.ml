@@ -66,6 +66,7 @@ module Format = struct
     | SwitchAction o -> output fmt o
     | ControllerAction _ -> fprintf fmt "controller"
     | ControllerQuery (time, f) -> fprintf fmt "controllerQuery %f" time
+    | LeaveBufferedAction -> fprintf fmt "leaveBuffered"
 
   let rec action_list fmt lst = match lst with
     | [] -> fprintf fmt "drop"

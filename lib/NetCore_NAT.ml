@@ -70,7 +70,7 @@ end
 let make (public_ip : nwAddr) =
   let (stream, push) = Lwt_stream.create () in
   let tbl = Table.create 2000 65535 in
-  let rec init_public_pol sw pt pk =
+  let rec init_public_pol sw pt pk bf =
     match pk with
     | { nw = Ip {
         Ip.src = src_ip;
@@ -83,7 +83,7 @@ let make (public_ip : nwAddr) =
       drop 
     | _ -> eprintf "[NAT] firewalling non IP packet.\n%!"; drop in
 
-  let rec callback sw pt pk =
+  let rec callback sw pt pk bf =
     match pk with
     | { nw = Ip {
         Ip.src = private_ip;

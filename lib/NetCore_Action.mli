@@ -64,7 +64,7 @@ sig
   val updateSrcPort : int -> int -> t
   val updateDstPort : int -> int -> t
   val query : float -> get_count_handler -> t
-  val controller : (switchId -> port -> packet -> action) -> t
+  val controller : (switchId -> port -> packet -> bufferId option -> action) -> t
   (* val apply_controller : action -> lp -> action *)
   val switch_part  : action -> action
   val make_transformer : value -> value -> action
@@ -87,7 +87,7 @@ sig
   val updateSrcPort : int -> int -> t
   val updateDstPort : int -> int -> t
   val query : float -> get_count_handler -> t
-  val controller : (switchId -> port -> packet -> action) -> t
+  val controller : (switchId -> port -> packet -> bufferId option -> action) -> t
   (* val apply_controller : action -> lp -> action *)
   val switch_part  : action -> action
   val make_transformer : value -> value -> t

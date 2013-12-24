@@ -7,6 +7,7 @@ open NetCore_Pattern
 type switchId = int64
 type portId = int32
 type queueId = int32
+type bufferId = int32
 
 let string_of_portId pid = Printf.sprintf "%ld" pid
 let string_of_switchId swid = Printf.sprintf "0x%Lx" swid
@@ -16,7 +17,7 @@ type 'a wildcard = 'a NetCore_Wildcard.wildcard
 
 type port = NetCore_Pattern.port
 
-type lp = switchId * port * packet
+type lp = switchId * port * packet * bufferId option
 
 type ptrn = NetCore_Pattern.t
 
@@ -47,7 +48,7 @@ let id =
     outTpDst = None;
     outPort = Here }
 
-type get_packet_handler = switchId -> port -> packet -> action
+type get_packet_handler = switchId -> port -> packet -> bufferId option -> action
 
 (* Packet count -> Byte count -> unit. *)
 and get_count_handler = Int64.t -> Int64.t -> unit
@@ -56,6 +57,7 @@ and action_atom =
   | SwitchAction of output
   | ControllerAction of get_packet_handler
   | ControllerQuery of float * get_count_handler
+  | LeaveBufferedAction
 
 and action = action_atom list
 

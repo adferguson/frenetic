@@ -26,7 +26,7 @@ let monitor_load (window : float) (label : string) =
   NetCore_Action.Output.query window monitor_load_handler
 
 let monitor_packets (label : string) : action = 
-  let monitor_packet_handler sw port pkt = 
+  let monitor_packet_handler sw port pkt buf =
     printf "[%s] packet %s on switch %Ld port %s\n%!"
       label
       (Packet.to_string pkt) 

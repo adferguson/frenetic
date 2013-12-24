@@ -43,7 +43,7 @@ let make () =
 
   (** Stores a new switch * host * port tuple in the table, creates a
       new learning policy, and pushes that policy to the stream. *)
-  and learn_host sw pt pk  =
+  and learn_host sw pt pk buf  =
     match pt with
     | Physical pt ->
       begin

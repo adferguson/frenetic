@@ -244,8 +244,9 @@ struct
         all
     | ControllerAction _      -> all
     | ControllerQuery _   -> all
+    | LeaveBufferedAction -> all
 
-  let apply_output out (sw,pt,pkt) =
+  let apply_output out (sw,pt,pkt,buf) =
     let dom = domain (SwitchAction out) in
     if NetCore_Pattern.match_packet pt pkt dom then
       let pt' = match out.outPort with
@@ -261,18 +262,19 @@ struct
                         (maybe_modify out.outNwDst Packet.setNwDst
                            (maybe_modify out.outNwTos Packet.setNwTos
                               (maybe_modify out.outTpSrc Packet.setTpSrc
-                                 (maybe_modify out.outTpDst Packet.setTpDst pkt))))))))))
+                                 (maybe_modify out.outTpDst Packet.setTpDst pkt))))))))), buf)
     else
       None
 
-  let rec apply_atom atom (sw,pt,pk) = match atom with
+  let rec apply_atom atom (sw,pt,pk,bf) = match atom with
     | SwitchAction out -> 
-      begin match apply_output out (sw,pt,pk) with
+      begin match apply_output out (sw,pt,pk,bf) with
         | Some v -> [v]
         | None -> []
       end
-    | ControllerAction f -> apply_action (f sw pt pk) (sw, pt, pk)
+    | ControllerAction f -> apply_action (f sw pt pk bf) (sw, pt, pk, bf)
     | ControllerQuery _ -> []
+    | LeaveBufferedAction -> [(sw, pt, pk, bf)] (* Leave packet unchanged *)
 
   and apply_action act lp = 
     Frenetic_List.concat_map (fun a -> apply_atom a lp) act
@@ -328,6 +330,8 @@ struct
     Frenetic_List.concat_map (fun a -> map (fun b -> (a, b)) lst2) lst1
 
   let rec seq_action_atom atom1 atom2 = match (atom1, atom2) with
+    | LeaveBufferedAction, _ -> Some LeaveBufferedAction (* Leaving in the buffer takes precedence *)
+    | _, LeaveBufferedAction -> Some LeaveBufferedAction
     | SwitchAction out1, SwitchAction out2 -> 
       begin match seq_output out1 out2 with
         | Some out3 -> Some (SwitchAction out3)
@@ -336,24 +340,24 @@ struct
     | ControllerAction f, ControllerAction g ->
       Some
         (ControllerAction 
-           (fun sw pt pk ->
+           (fun sw pt pk bf ->
               (* 1st action produces new packets *) 
-              let lps = apply_action (f sw pt pk) (sw, pt, pk) in 
+              let lps = apply_action (f sw pt pk bf) (sw, pt, pk, bf) in
               (* 2nd action is applied to the new packets, to get joint action *)
-              par_actions (List.map (fun (sw', pt', pk') -> g sw' pt' pk') lps)))
+              par_actions (List.map (fun (sw', pt', pk', bf') -> g sw' pt' pk' bf') lps)))
     | SwitchAction out, ControllerAction g ->
       Some 
         (ControllerAction
-           (fun sw pt pk ->
-              begin match apply_output out (sw, pt, pk) with
-                | Some (sw', pt', pk') -> g sw' pt' pk'
+           (fun sw pt pk bf ->
+              begin match apply_output out (sw, pt, pk, bf) with
+                | Some (sw', pt', pk', bf') -> g sw' pt' pk' bf'
                 | None -> []
               end))
     | ControllerAction f, SwitchAction out ->
       Some
         (ControllerAction
-           (fun sw pt pk ->
-              let atoms1 = f sw pt pk in
+           (fun sw pt pk bf ->
+              let atoms1 = f sw pt pk bf in
               Frenetic_List.filter_none
                 (List.map
                    (fun at1 -> seq_action_atom at1 (SwitchAction out))
@@ -426,13 +430,15 @@ struct
     | SwitchAction out        -> sequence_range_switch out pat
     | ControllerAction _      -> pat
     | ControllerQuery _   -> pat
+    | LeaveBufferedAction -> pat
 
-  let apply_controller action (sw, pt, pk) =
+  let apply_controller action (sw, pt, pk, bf) =
     let f atom acc = match atom with
       | SwitchAction _ -> acc
-      | ControllerAction f -> par_action (f sw pt pk) acc
+      | ControllerAction f -> par_action (f sw pt pk bf) acc
       (* TODO(cole): don't ignore packets sent to the controller? *)
       | ControllerQuery _ -> acc
+      | LeaveBufferedAction -> acc
     in
     List.fold_right f action drop
 
@@ -441,6 +447,7 @@ struct
       | SwitchAction _ -> true
       | ControllerAction _ -> false
       | ControllerQuery _ -> false
+      | LeaveBufferedAction -> false
     in
     List.filter f action
 
@@ -450,6 +457,7 @@ struct
       | SwitchAction _ -> false
       | ControllerAction _ -> false
       | ControllerQuery _ -> true
+      | LeaveBufferedAction -> false
     in
     List.filter f action
 
@@ -458,6 +466,7 @@ struct
     | ControllerAction f, ControllerAction g -> f == g (* functional values *)
     | ControllerQuery (time, f), ControllerQuery (time', f') -> 
       time == time' && f == f'
+    | LeaveBufferedAction, LeaveBufferedAction -> true
     | _ -> false
 
   (* TODO(arjun): What if they are permutations? *)
@@ -539,6 +548,7 @@ module Group = struct
       | SwitchAction _ -> true
       | ControllerAction _ -> false
       | ControllerQuery _ -> false
+      | LeaveBufferedAction -> false
     in
     List.filter f action
 
@@ -562,12 +572,13 @@ module Group = struct
 
   let sequence_range = Output.sequence_range
 
-  let apply_controller action (sw, pt, pk) =
+  let apply_controller action (sw, pt, pk, bf) =
     let f atom acc = match atom with
       | SwitchAction _ -> acc
-      | ControllerAction f -> par_action [(f sw pt pk)] acc
+      | ControllerAction f -> par_action [(f sw pt pk bf)] acc
       (* TODO(cole): don't ignore packets sent to the controller? *)
       | ControllerQuery _ -> acc
+      | LeaveBufferedAction -> acc
     in
     List.fold_right f action drop
 

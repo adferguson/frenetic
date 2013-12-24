@@ -3,7 +3,7 @@ open Packet
 open NetCore_Types
 
 val start_controller : 
-  (switchId * portId * bytes) Lwt_stream.t 
+  (switchId * portId * OpenFlow0x01_Core.payload) Lwt_stream.t
   -> pol NetCore_Stream.t 
   -> unit Lwt.t
 

@@ -112,6 +112,7 @@ struct
     | SwitchAction out -> output_to_of inp out
     | ControllerAction _ -> [ Output (Controller 65535) ]
     | ControllerQuery _ -> []
+    | LeaveBufferedAction -> []
 
   let as_actionSequence inp act = 
     let of_atoms = Frenetic_List.concat_map (atom_to_of inp) act in
@@ -428,6 +429,7 @@ struct
     | SwitchAction out -> output_to_of inp out
     | ControllerAction _ -> [ Output (Controller 65535) ]
     | ControllerQuery _ -> []
+    | LeaveBufferedAction -> []
 
   let as_actionSequence1 inp act = 
     let of_atoms = Frenetic_List.concat_map (atom_to_of inp) act in

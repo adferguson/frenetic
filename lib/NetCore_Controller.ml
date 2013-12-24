@@ -53,6 +53,7 @@ module Query = struct
       (match q.atom with
        | SwitchAction _ -> "SwitchAction"
        | ControllerAction _ -> "ControllerAction"
+       | LeaveBufferedAction -> "LeaveBufferedAction"
        | ControllerQuery (t, _) -> Printf.sprintf "ControllerQuery (%f,_)" t)
       (String.concat "," (List.map (fun sw -> Printf.sprintf "%Ld" sw)
                             (SwitchSet.elements !(q.switches))))
@@ -380,13 +381,20 @@ module Make  = struct
           (List.map (NetCore_Action.Output.make_transformer in_val)
              new_out_vals) in
 
+      (* Corresponds to LeaveBufferedAction *)
+      let leave_buffered = List.length action = 0 &&
+                           List.length new_out_vals = 1 in
+
       let out_payload = 
         { output_payload = pkt_in.input_payload
         ; port_id = None
         ; apply_actions = 
             as_actionSequence (Some in_port) action
         } in
-      Platform.send_to_switch sw 0l (Message.PacketOutMsg out_payload)  
+      if not leave_buffered then
+        Platform.send_to_switch sw 0l (Message.PacketOutMsg out_payload)
+      else
+        Lwt.return_unit
     with Unparsable _ -> 
       Log.warning_f "unparsable packet"
 
@@ -459,9 +467,9 @@ module Make  = struct
       which is banned until after PLDI 2013. *)
   let emit_packets pkt_stream = 
     let open PacketOut in
-    let emit_pkt (sw, pt, bytes) =
+    let emit_pkt (sw, pt, pay) =
       let msg = {
-        output_payload = NotBuffered bytes;
+        output_payload = pay;
         port_id = None;
         apply_actions = [Output (PhysicalPort (to_of_portId pt))]
       } in
@@ -508,6 +516,7 @@ module MakeConsistent = struct
       else [act]
     | ControllerAction _ -> [act]
     | ControllerQuery _ -> [act]
+    | LeaveBufferedAction -> [act]
 
   let rec explode_allPorts pol ports = match pol with
     | HandleSwitchEvent _ -> pol

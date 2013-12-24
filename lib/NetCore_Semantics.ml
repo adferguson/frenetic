@@ -21,15 +21,18 @@ let rec match_pred pr sw pt pk =
 
 let eval_action act inp =
   let Pkt (sw, pt, pk, pay) = inp in
-  List.map (fun (sw', pt',pk') -> Pkt (sw', pt', pk', pay))
-    (NetCore_Action.Output.apply_action act (sw, pt, pk))
+  let bf =  match pay with
+    | OpenFlow0x01_Core.Buffered(id, _) -> Some id
+    | OpenFlow0x01_Core.NotBuffered _ -> None in
+  List.map (fun (sw', pt', pk', bf') -> Pkt (sw', pt', pk', pay))
+    (NetCore_Action.Output.apply_action act (sw, pt, pk, bf))
 
 let rec eval pol pkt = match pol with
   | HandleSwitchEvent _ -> []
   | Action action -> eval_action action pkt 
   | ActionChoice _ -> failwith "NYI: eval ActionChoice"
   | Filter pred0 ->
-    let Pkt (sw, pt, pk, buf) = pkt in
+    let Pkt (sw, pt, pk, pay) = pkt in
     if match_pred pred0 sw pt pk then [pkt] else []
   | Union (p1, p2) -> 
     (eval p1 pkt) @ (eval p2 pkt)
@@ -37,7 +40,7 @@ let rec eval pol pkt = match pol with
     let pkts' = eval pol1 pkt in
     Frenetic_List.concat_map (eval pol2) pkts'
   | ITE (pred, then_pol, else_pol) ->
-    let Pkt (sw, pt, pk, buf) = pkt in
+    let Pkt (sw, pt, pk, pay) = pkt in
     if match_pred pred sw pt pk then
       eval then_pol pkt
     else

@@ -91,7 +91,7 @@ module Make (A : Arg) = struct
       switch_connected graph sw features.ports
     | SwitchDown sw -> switch_disconnected graph sw
 
-  let recv_discovery_pkt sw pt pk = match pt with
+  let recv_discovery_pkt sw pt pk buf = match pt with
     | Physical phys_pt ->
       begin
         match parse_discovery_pkt pk with

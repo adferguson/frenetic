@@ -85,11 +85,11 @@ module Make : MAKE = functor (Action:ACTION) -> struct
     | [] -> Action.drop
     | act :: lst' -> Action.par_action act (par_actions lst')
 
-  let seq tbl1 tbl2 sw pt pk =
+  let seq tbl1 tbl2 sw pt pk bf =
     Action.seq_action (scan tbl1 pt pk)
       (par_actions
-         (List.map (fun (sw,pt0,pk0) -> scan tbl2 pt0 pk0)
-            (Action.apply_action (scan tbl1 pt pk) (sw, pt, pk))))
+         (List.map (fun (sw,pt0,pk0,bf0) -> scan tbl2 pt0 pk0)
+            (Action.apply_action (scan tbl1 pt pk) (sw, pt, pk, bf))))
 
   let union tbl1 tbl2 =
     union_no_opt tbl1 tbl2

@@ -7,6 +7,7 @@ open NetCore_Pattern
 type switchId = int64
 type portId = int32
 type queueId = int32
+type bufferId = int32
 
 val string_of_portId : portId -> string
 val string_of_switchId : switchId -> string
@@ -15,7 +16,7 @@ val string_of_queueId : queueId -> string
 
 type 'a wildcard = 'a NetCore_Wildcard.wildcard
 
-type lp = switchId * port * packet
+type lp = switchId * port * packet * bufferId option
 
 type port = NetCore_Pattern.port
 
@@ -41,7 +42,7 @@ type output = {
 
 val id : output
 
-type get_packet_handler = switchId -> port -> packet -> action
+type get_packet_handler = switchId -> port -> packet -> bufferId option -> action
 
 (* Packet count -> Byte count -> unit. *)
 and get_count_handler = Int64.t -> Int64.t -> unit
@@ -50,6 +51,7 @@ and action_atom =
   | SwitchAction of output
   | ControllerAction of get_packet_handler
   | ControllerQuery of float * get_count_handler
+  | LeaveBufferedAction
 
 and action = action_atom list
 
