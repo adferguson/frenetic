@@ -171,50 +171,13 @@ struct
     if old <> new_ then
       transformer old new_
     else
-      drop
+      pass
 
   let maybe_transform_port old new_ transformer = 
     if old <> new_ then
       transformer new_
     else
-      drop
-
-  (* Return an action [act] such that [eval_action p1 act] = [p2]. *)
-  let make_transformer v1 v2 =
-    let Pkt (_, pt1, p1, _) = v1 in
-    let Pkt (_, pt2, p2, _) = v2 in
-    let eth_actions =
-      [ maybe_transform_port pt1 pt2 updatePort
-      ; maybe_transform p1.dlSrc p2.dlSrc updateDlSrc
-      ; maybe_transform p1.dlDst p2.dlDst updateDlDst
-      ; maybe_transform p1.dlVlan p2.dlVlan updateDlVlan
-      ; maybe_transform p1.dlVlanPcp p2.dlVlanPcp updateDlVlanPcp ] in
-    let ip_actions = match (p1.nw, p2.nw) with 
-      | Ip ip1, Ip ip2 ->
-        let open Ip in
-        let ip_acts =
-          [ maybe_transform ip1.src ip2.src updateSrcIP
-          ; maybe_transform ip1.dst ip2.dst updateDstIP
-          ; maybe_transform ip1.tos ip2.tos updateTosIP ] in
-        let tcp_acts = begin match (ip1.tp, ip2.tp) with
-          | Tcp tcp1, Tcp tcp2 ->
-            [ maybe_transform tcp1.Tcp.src tcp2.Tcp.src updateSrcPort
-            ; maybe_transform tcp1.Tcp.dst tcp2.Tcp.dst updateDstPort ]
-          | Icmp _, Icmp _
-          | Unparsable _, Unparsable _ 
-          | _, _ -> []
-        end in
-        ip_acts @ tcp_acts
-      | Arp _, Arp _
-      | Unparsable _, Unparsable _
-      (* TODO(cole) warn/fail if these values differ? *)
-      | _, _ ->
-        (* TODO(cole) warn/fail that the policy somehow changed the frame 
-         * type? *)
-        []
-    in
-    List.fold_left par_action drop (eth_actions @ ip_actions)
-
+      pass
 
   let maybe_modify nw modifier pk = match nw with
     | Some (a,v) ->
@@ -376,6 +339,42 @@ struct
 
   let alt_action act1 act2 =
     failwith "NYI: alt_action"
+
+  (* Return an action [act] such that [eval_action p1 act] = [p2]. *)
+  let make_transformer v1 v2 =
+    let Pkt (_, pt1, p1, _) = v1 in
+    let Pkt (_, pt2, p2, _) = v2 in
+    let port_action = [ maybe_transform_port pt1 pt2 updatePort ] in
+    let eth_actions =
+      [ maybe_transform p1.dlSrc p2.dlSrc updateDlSrc
+      ; maybe_transform p1.dlDst p2.dlDst updateDlDst
+      ; maybe_transform p1.dlVlan p2.dlVlan updateDlVlan
+      ; maybe_transform p1.dlVlanPcp p2.dlVlanPcp updateDlVlanPcp ] in
+    let ip_actions = match (p1.nw, p2.nw) with
+      | Ip ip1, Ip ip2 ->
+        let open Ip in
+        let ip_acts =
+          [ maybe_transform ip1.src ip2.src updateSrcIP
+          ; maybe_transform ip1.dst ip2.dst updateDstIP
+          ; maybe_transform ip1.tos ip2.tos updateTosIP ] in
+        let tcp_acts = begin match (ip1.tp, ip2.tp) with
+          | Tcp tcp1, Tcp tcp2 ->
+            [ maybe_transform tcp1.Tcp.src tcp2.Tcp.src updateSrcPort
+            ; maybe_transform tcp1.Tcp.dst tcp2.Tcp.dst updateDstPort ]
+          | Icmp _, Icmp _
+          | Unparsable _, Unparsable _
+          | _, _ -> []
+        end in
+        ip_acts @ tcp_acts
+      | Arp _, Arp _
+      | Unparsable _, Unparsable _
+      (* TODO(cole) warn/fail if these values differ? *)
+      | _, _ ->
+        (* TODO(cole) warn/fail that the policy somehow changed the frame
+         * type? *)
+        []
+    in
+    List.fold_left seq_action pass (eth_actions @ ip_actions @ port_action)
 
   let trans maybe_mod build_singleton set_wild pat =
     match maybe_mod with
