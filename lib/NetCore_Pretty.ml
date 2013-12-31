@@ -82,7 +82,7 @@ module Format = struct
     | IdleTimeout ito -> fprintf fmt "@[%s@]" (OpenFlow0x01.Timeout.to_string ito)
 
   let rec meta_list fmt lst = match lst with
-    | [] -> fprintf fmt "(none)"
+    | [] -> fprintf fmt "none"
     | [x] -> meta fmt x
     | x :: lst' -> fprintf fmt "@[%a@ , %a@]" meta x meta_list lst'
 
@@ -156,6 +156,8 @@ let string_of_pol = string_of_mk Format.pol
 let string_of_action = string_of_mk Format.action_list
 
 let string_of_pattern = string_of_mk Format.pat
+
+let string_of_ruleMeta = string_of_mk Format.meta_list
 
 let string_of_value = function 
   | Pkt (sid, port, pkt, pay) ->

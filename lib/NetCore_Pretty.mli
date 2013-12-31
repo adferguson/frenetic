@@ -11,3 +11,5 @@ val string_of_value : value -> string
 val string_of_pattern : ptrn -> string
 
 val string_of_action : action -> string
+
+val string_of_ruleMeta : ruleMeta -> string
