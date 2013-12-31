@@ -78,6 +78,14 @@ module Format = struct
     | [x] -> action_list fmt x
     | x :: lst' -> fprintf fmt "@[ (@[%a@]) <|> (@[%a@])]" action_list x action_choice_list lst'
 
+  let meta fmt meta : unit = match meta with
+    | IdleTimeout ito -> fprintf fmt "@[%s@]" (OpenFlow0x01.Timeout.to_string ito)
+
+  let rec meta_list fmt lst = match lst with
+    | [] -> fprintf fmt "(none)"
+    | [x] -> meta fmt x
+    | x :: lst' -> fprintf fmt "@[%a@ , %a@]" meta x meta_list lst'
+
   let rec pred fmt p = match p with
     | And (p1, p2) -> fprintf fmt "@[%a@ && %a@]" orpred p1 pred p2
     | _ -> orpred fmt p
@@ -120,9 +128,11 @@ module Format = struct
     | HandleSwitchEvent _ -> fprintf fmt "@[handleSwitchEvent _@]"
     | Action a -> fprintf fmt "@[%a@]" action_list a
     | ActionChoice a -> fprintf fmt "@[%a@]" action_choice_list a
+    | ActionWithMeta (a, meta) -> fprintf fmt "@[%a, Meta: %a@]" action_list a meta_list meta
     | Filter pr -> fprintf fmt "@[filter %a@]" pred pr
     | Union _
     | Seq _
+    | Choice _
     | ITE _ -> fprintf fmt "@[(%a)@]" pol p
 
 end

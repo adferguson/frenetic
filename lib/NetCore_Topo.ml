@@ -86,8 +86,8 @@ module Make (A : Arg) = struct
 
   let switch_event_handler = function
     | SwitchUp (sw, features) -> 
-      Log.warning_f "switch_up: %s%!\n" (NetCore_Types.string_of_switchId sw);
-      Log.warning_f "ports: %s%!\n" (String.concat ";" (List.map NetCore_Types.string_of_portId features.ports));
+      ignore (Log.warning_f "switch_up: %s%!\n" (NetCore_Types.string_of_switchId sw));
+      ignore (Log.warning_f "ports: %s%!\n" (String.concat ";" (List.map NetCore_Types.string_of_portId features.ports)));
       switch_connected graph sw features.ports
     | SwitchDown sw -> switch_disconnected graph sw
 

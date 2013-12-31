@@ -65,17 +65,19 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
       [all,NetCore_Action.Bool.drop,[]]
 
   let rec compile_pol p sw =
-    match p with
-    | HandleSwitchEvent _ -> [(all, Output.drop, [])]
-    | Action action ->
+    let compile_action action meta =
       fold_right 
         (fun e0 tbl -> 
            OutputClassifier.union 
-             [(Output.domain e0, Output.to_action e0, [])]
+             [(Output.domain e0, Output.to_action e0, meta)]
              tbl)
         (Output.atoms (Output.from_nc_action action))
-        [(all, Output.drop, [])]
+        [(all, Output.drop, [])] in
+    match p with
+    | HandleSwitchEvent _ -> [(all, Output.drop, [])]
+    | Action action -> compile_action action []
     | ActionChoice _ -> failwith "NYI compile_pol ActionChoice"
+    | ActionWithMeta (action, meta) -> compile_action action meta
     | Filter pred -> 
       map 
 	(fun (a,b,meta) -> match b with
@@ -137,17 +139,19 @@ module NetCoreGroupCompiler = struct
         [all,NetCore_Action.Bool.drop,[]]
 
   let rec compile_pol p sw =
-    match p with
-      | HandleSwitchEvent _ -> [(all, Output.drop, [])]
-      | Action action ->
+    let compile_action action meta =
         fold_right 
           (fun e0 tbl -> 
             OutputClassifier.union 
-              [(Output.domain e0, Output.to_action e0, [])]
+              [(Output.domain e0, Output.to_action e0, meta)]
               tbl)
           (Output.atoms (Output.from_nc_action action))
-          [(all, Output.drop, [])]
+          [(all, Output.drop, [])] in
+    match p with
+      | HandleSwitchEvent _ -> [(all, Output.drop, [])]
+      | Action action -> compile_action action []
       | ActionChoice _ -> failwith "NYI compile_pol ActionChoice"
+      | ActionWithMeta (action, meta) -> compile_action action meta
       | Filter pred -> 
 	map 
 	  (fun (a,b,meta) -> match b with

@@ -83,9 +83,15 @@ type switchEvent =
   | SwitchUp of switchId * switchFeatures
   | SwitchDown of switchId
 
+type ruleMetaOption =
+  | IdleTimeout of OpenFlow0x01_Core.timeout
+
+type ruleMeta = ruleMetaOption list
+
 type pol =
   | HandleSwitchEvent of (switchEvent -> unit)
   | Action of action
+  | ActionWithMeta of action * ruleMeta
   | ActionChoice of action list
   | Filter of pred
   | Union of pol * pol
@@ -96,9 +102,3 @@ type pol =
 
 type value =
   | Pkt of switchId * port * packet * OpenFlow0x01.Payload.t
-
-
-type ruleMetaOption =
-  | IdleTimeout of OpenFlow0x01_Core.timeout
-
-type ruleMeta = ruleMetaOption list

@@ -232,15 +232,17 @@ module QuerySet = struct
 
   (* Populate q_actions_to_query_ids. *)
   let rec generate_query_ids pol gen_query_id : unit =
-    match pol with
-    | HandleSwitchEvent _ -> ()
-    | Action atoms ->
+    let f atoms =
       List.iter (fun atom -> match atom with
           | ControllerQuery (_, cb) -> 
             Hashtbl.replace q_actions_to_query_ids atom (gen_query_id ())
           | _ -> ())
-        atoms
+        atoms in
+    match pol with
+    | HandleSwitchEvent _ -> ()
+    | Action atoms -> f atoms
     | ActionChoice _ -> failwith "NYI: generate_query_ids ActionChoice"
+    | ActionWithMeta (atoms, meta) -> f atoms
     | Filter _ -> ()
     | Choice (p1, p2) 
     | Union (p1, p2)
@@ -529,6 +531,7 @@ module MakeConsistent = struct
     | HandleSwitchEvent _ -> pol
     | Action acts -> Action (List.flatten (List.map (explode_allPorts_in_action ports) acts))
     | ActionChoice _ -> pol
+    | ActionWithMeta (acts, meta) -> ActionWithMeta ((List.flatten (List.map (explode_allPorts_in_action ports) acts)), meta)
     | Filter _ -> pol
     | Union (a,b) -> Union (explode_allPorts a ports, explode_allPorts b ports)
     | Seq (a,b) -> Seq (explode_allPorts a ports, explode_allPorts b ports)

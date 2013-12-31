@@ -31,6 +31,7 @@ let rec eval pol pkt = match pol with
   | HandleSwitchEvent _ -> []
   | Action action -> eval_action action pkt 
   | ActionChoice _ -> failwith "NYI: eval ActionChoice"
+  | ActionWithMeta (action, meta) -> eval_action action pkt
   | Filter pred0 ->
     let Pkt (sw, pt, pk, pay) = pkt in
     if match_pred pred0 sw pt pk then [pkt] else []
@@ -45,6 +46,7 @@ let rec eval pol pkt = match pol with
       eval then_pol pkt
     else
       eval else_pol pkt
+  | Choice _ -> failwith "NYI: Choice"
 
 (* Interprets a predicate as a predicate on switches. Hdr returns true *)
 let rec sw_pred sw = function
@@ -63,6 +65,7 @@ let event_switch = function
 let rec apply_switch_events evt = function
   | Action _ -> false
   | ActionChoice _ -> false
+  | ActionWithMeta _ -> false
   | Filter pred -> sw_pred (event_switch evt) pred
   | Union (pol1, pol2) ->
     apply_switch_events evt pol1 || apply_switch_events evt pol2
@@ -74,6 +77,7 @@ let rec apply_switch_events evt = function
     else
       apply_switch_events evt pol2
   | HandleSwitchEvent handler -> handler evt; true (* return boolean? *)
+  | Choice _ -> failwith "NYI: Choice"
 
 let handle_switch_events evt pol =
   let _ = apply_switch_events evt pol in
