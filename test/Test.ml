@@ -498,9 +498,10 @@ module Helper = struct
     if dbg then
       let _ = printf "Classifier:\n" in
       List.iter 
-        (fun (m,a,meta) -> printf " %s => %s\n"
+        (fun (m,a,meta) -> printf " %s => %s (Meta: %s)\n"
             (NetCore_Pretty.string_of_pattern m)
-            (NetCore_Pretty.string_of_action a))
+            (NetCore_Pretty.string_of_action a)
+            (NetCore_Pretty.string_of_ruleMeta meta))
         classifier
     else
       ();
