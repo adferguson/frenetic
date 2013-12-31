@@ -82,6 +82,7 @@ type switchFeatures = { datapath_id : switchId; num_buffers : int;
 type switchEvent =
   | SwitchUp of switchId * switchFeatures
   | SwitchDown of switchId
+  | FlowRemoved of switchId * OpenFlow0x01.FlowRemoved.t
 
 type ruleMetaOption =
   | IdleTimeout of OpenFlow0x01_Core.timeout

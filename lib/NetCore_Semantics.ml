@@ -61,6 +61,7 @@ let rec sw_pred sw = function
 let event_switch = function
   | SwitchUp (sw, _) -> sw
   | SwitchDown sw -> sw
+  | FlowRemoved (sw, _) -> sw
 
 let rec apply_switch_events evt = function
   | Action _ -> false

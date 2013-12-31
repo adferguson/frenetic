@@ -435,9 +435,10 @@ module Make  = struct
       | VendorMsg buf ->
         Printf.printf "Unhandled OpenFlow Vendor Message\n%!";
         Lwt.return ()
-      | FlowRemovedMsg msg -> (* TODO(adf): handle *)
-        Printf.printf "Unhandled FlowRemovedMsg...\n%!";
-        Lwt.return ()
+      | FlowRemovedMsg frm ->
+        Lwt.wrap2 NetCore_Semantics.handle_switch_events
+                  (FlowRemoved (sw, frm))
+                  (NetCore_Stream.now pol)
       | _ -> Lwt.return () in
     handle_switch_messages pol sw
 

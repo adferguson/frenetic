@@ -76,7 +76,7 @@ type switchFeatures = { datapath_id : switchId; num_buffers : int;
 type switchEvent =
   | SwitchUp of switchId * switchFeatures
   | SwitchDown of switchId
-  (* TODO(adf): probably where RuleExpired goes! *)
+  | FlowRemoved of switchId * OpenFlow0x01.FlowRemoved.t
 
 (* done as a list to make empty options (which we expect to be common)
  * easier. however, we might really want to have a "set" of options since

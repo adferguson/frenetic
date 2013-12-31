@@ -90,6 +90,7 @@ module Make (A : Arg) = struct
       ignore (Log.warning_f "ports: %s%!\n" (String.concat ";" (List.map NetCore_Types.string_of_portId features.ports)));
       switch_connected graph sw features.ports
     | SwitchDown sw -> switch_disconnected graph sw
+    | FlowRemoved _ -> ()
 
   let recv_discovery_pkt sw pt pk buf = match pt with
     | Physical phys_pt ->
