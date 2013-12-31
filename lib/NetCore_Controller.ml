@@ -58,7 +58,7 @@ module Query = struct
       (String.concat "," (List.map (fun sw -> Printf.sprintf "%Ld" sw)
                             (SwitchSet.elements !(q.switches))))
 
-  let to_query atom (pattern, action) =
+  let to_query atom (pattern, action, meta) =
     let query_atoms = NetCore_Action.Output.queries action in
     if List.exists (NetCore_Action.Output.atom_is_equal atom) query_atoms then
       NetCore_Pattern.to_match0x01 pattern
@@ -325,6 +325,7 @@ module Make  = struct
          Platform.send_to_switch sw 0l 
            (Message.FlowModMsg (add_flow pft.PrioritizedFlow.prio
                                          pft.PrioritizedFlow.pattern
+                                         ~idle_to:pft.PrioritizedFlow.idle_to
                                          pft.PrioritizedFlow.actions)) >>
          Lwt.return ())
       (PrioritizedFlowTable.elements added) >>
@@ -386,6 +387,8 @@ module Make  = struct
       let leave_buffered = List.length action = 0 &&
                            List.length new_out_vals = 1 in
 
+      (* TODO(adf): also, if List.length action = 0 && bufferId is None, skip sending unnecessary message *)
+
       let out_payload = 
         { output_payload = pkt_in.input_payload
         ; port_id = None
@@ -423,6 +426,9 @@ module Make  = struct
         Lwt.return ()
       | VendorMsg buf ->
         Printf.printf "Unhandled OpenFlow Vendor Message\n%!";
+        Lwt.return ()
+      | FlowRemovedMsg msg -> (* TODO(adf): handle *)
+        Printf.printf "Unhandled FlowRemovedMsg...\n%!";
         Lwt.return ()
       | _ -> Lwt.return () in
     handle_switch_messages pol sw

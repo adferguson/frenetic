@@ -74,71 +74,71 @@ module TestClassifier = struct
   let lst = 
     [("composition test 1",
       [(NetCore_Pattern.inter (dlDst 0xdeadbeefL) (inPort (Physical 5l)),
-        forward 2l);
-       (all, drop)],
+        forward 2l, []);
+       (all, drop, [])],
       let tbl1 =
         [(NetCore_Pattern.inter (dlDst 0xdeadbeefL) (inPort (Physical 5l)),
-          forward 1l);
-         (all, drop)] in
+          forward 1l, []);
+         (all, drop, [])] in
       let tbl2 =
-        [(inPort (Physical 1l), forward 2l);
-         (all, drop)] in
+        [(inPort (Physical 1l), forward 2l, []);
+         (all, drop, [])] in
       (sequence tbl1 tbl2));
      ("composition test 2",
-      [(inter (dlSrc 0xFFFFL) (inPort (Physical 10l)), forward 20l);
-       (inter (dlSrc 0xFFFFL) (inPort (Physical 300l)), forward 400l);
-       (all, drop)],
+      [(inter (dlSrc 0xFFFFL) (inPort (Physical 10l)), forward 20l, []);
+       (inter (dlSrc 0xFFFFL) (inPort (Physical 300l)), forward 400l, []);
+       (all, drop, [])],
       sequence
-        [(dlSrc 0xFFFFL, pass); (all, drop)]
-        [(inPort (Physical 10l), forward 20l);
-         (inPort (Physical 300l), forward 400l);
-         (all, drop)]);
+        [(dlSrc 0xFFFFL, pass, []); (all, drop, [])]
+        [(inPort (Physical 10l), forward 20l, []);
+         (inPort (Physical 300l), forward 400l, []);
+         (all, drop, [])]);
      ("composition test 3",
-      [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL), forward 2l);
-       (all, drop)],
+      [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL), forward 2l, []);
+       (all, drop, [])],
       sequence
-        [(dlSrc 0xDDDDL, forward 1l); (all, drop)]
-        [(dlDst 0xEEEEL, forward 2l); (all, drop)]);
+        [(dlSrc 0xDDDDL, forward 1l, []); (all, drop, [])]
+        [(dlDst 0xEEEEL, forward 2l, []); (all, drop, [])]);
      ("sequencing test 4",
-      [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL), forward 2l);
-       (all, drop)],
+      [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL), forward 2l, []);
+       (all, drop, [])],
       sequence
-        [(dlSrc 0xDDDDL, pass); (all, drop)]
-        [(dlDst 0xEEEEL, forward 2l); (all, drop)]);
+        [(dlSrc 0xDDDDL, pass, []); (all, drop, [])]
+        [(dlDst 0xEEEEL, forward 2l, []); (all, drop, [])]);
      ("sequencing test 5",
-      [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL), forward 2l);
-       (all, drop)],
+      [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL), forward 2l, []);
+       (all, drop, [])],
       sequence
-        [(dlSrc 0xDDDDL, forward 2l); (all, drop)]
-        [(dlDst 0xEEEEL, pass); (all, drop)]);
+        [(dlSrc 0xDDDDL, forward 2l, []); (all, drop, [])]
+        [(dlDst 0xEEEEL, pass, []); (all, drop, [])]);
      ("union regression 1",
       [(inter (dlSrc 0xDDDDL) (dlDst 0xEEEEL),
-        par_action (forward 2l) (forward 30l));
-       (dlSrc 0xDDDDL, forward 2l);
-       (dlDst 0xEEEEL, forward 30l);
-       (all, drop)],
+        par_action (forward 2l) (forward 30l), []);
+       (dlSrc 0xDDDDL, forward 2l, []);
+       (dlDst 0xEEEEL, forward 30l, []);
+       (all, drop, [])],
       union
-        [(dlSrc 0xDDDDL, forward 2l);
-         (all, drop)]
-        [(dlDst 0xEEEEL, forward 30l);
-         (all, drop)]);
+        [(dlSrc 0xDDDDL, forward 2l, []);
+         (all, drop, [])]
+        [(dlDst 0xEEEEL, forward 30l, []);
+         (all, drop, [])]);
      ("union overlap 1",
-      [(dlSrc 0xDDDDL, par_action (forward 2l) (forward 30l));
-       (all, forward 30l)],
+      [(dlSrc 0xDDDDL, par_action (forward 2l) (forward 30l), []);
+       (all, forward 30l, [])],
       union
-        [(dlSrc 0xDDDDL, forward 2l); (all, drop)]
-        [(all, forward 30l)]);
+        [(dlSrc 0xDDDDL, forward 2l, []); (all, drop, [])]
+        [(all, forward 30l, [])]);
      ("union overlap 2",
-      [(dlSrc 0xDDDDL, par_action (forward 2l) (forward 2l));
-       (all, forward 2l)],
+      [(dlSrc 0xDDDDL, par_action (forward 2l) (forward 2l), []);
+       (all, forward 2l, [])],
       union
-        [(dlSrc 0xDDDDL, forward 2l); (all, drop)]
-        [(all, forward 2l)])]
+        [(dlSrc 0xDDDDL, forward 2l, []); (all, drop, [])]
+        [(all, forward 2l, [])])]
 
   let lst2 =
     [("NAT module with *wrong* forwarding shim",
-      [(inPort (Physical 1l), forward 2l);
-       (all, drop)],
+      [(inPort (Physical 1l), forward 2l, []);
+       (all, drop, [])],
       1L,
       Union
         (Seq
@@ -169,8 +169,8 @@ module TestClassifier = struct
                Action pass)),
          Action pass));
      ("sequencing 1",
-      [(dlVlan None, updateDlVlan None (Some 1));
-       (all, drop)],
+      [(dlVlan None, updateDlVlan None (Some 1), []);
+       (all, drop, [])],
       1L,
       Seq (Action (updateDlVlan None (Some 1)),
            Filter (Hdr (dlVlan (Some 1)))))]
@@ -303,8 +303,8 @@ module TestNetCore = struct
                 (And 
                    (OnSwitch 1L, Hdr (dlDst 0x0ab75f2211d4L))))
              1L)
-          [(dlDst 0x0ab75f2211d4L, pass); 
-           (all, drop)]
+          [(dlDst 0x0ab75f2211d4L, pass, []);
+           (all, drop, [])]
 
   let pol2_query =
     Seq
@@ -498,7 +498,7 @@ module Helper = struct
     if dbg then
       let _ = printf "Classifier:\n" in
       List.iter 
-        (fun (m,a) -> printf " %s => %s\n"
+        (fun (m,a,meta) -> printf " %s => %s\n"
             (NetCore_Pretty.string_of_pattern m)
             (NetCore_Pretty.string_of_action a))
         classifier

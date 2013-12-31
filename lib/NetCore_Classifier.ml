@@ -5,7 +5,7 @@ module type ACTION = NetCore_Action.ACTION
 module type CLASSIFIER = sig
   type action
 
-  type t = (NetCore_Types.ptrn * action) list
+  type t = (NetCore_Types.ptrn * action * NetCore_Types.ruleMeta) list
 
   val scan : t -> NetCore_Types.port -> packet -> action
 
@@ -26,12 +26,12 @@ sig include CLASSIFIER end
 module Make : MAKE = functor (Action:ACTION) -> struct
   type action = Action.t
 
-  type t = (NetCore_Pattern.t * action) list
+  type t = (NetCore_Pattern.t * action * NetCore_Types.ruleMeta) list
 
   let rec scan' default classifier pt pk = match classifier with
     | [] -> default
     | p :: rest ->
-      let (pat, a) = p in
+      let (pat, a, meta) = p in
       if NetCore_Pattern.match_packet pt pk pat then a else scan' default rest pt pk
 
   let scan = scan' Action.drop
@@ -39,11 +39,11 @@ module Make : MAKE = functor (Action:ACTION) -> struct
   let rec elim_shadowed_helper prefix = function
     | [] -> prefix
     | p :: cf' ->
-      let (pat, act) = p in
+      let (pat, act, meta) = p in
       if List.exists (fun entry ->
-          let (pat', act0) = entry in NetCore_Pattern.contains pat pat') prefix
+          let (pat', act0, meta0) = entry in NetCore_Pattern.contains pat pat') prefix
       then elim_shadowed_helper prefix cf'
-      else elim_shadowed_helper (prefix @ ((pat, act) :: [])) cf'
+      else elim_shadowed_helper (prefix @ ((pat, act, meta) :: [])) cf'
 
   let elim_shadowed cf =
     elim_shadowed_helper [] cf
@@ -51,29 +51,29 @@ module Make : MAKE = functor (Action:ACTION) -> struct
   let rec strip_empty_rules = function
     | [] -> []
     | p :: cf0 ->
-      let (pat, acts) = p in
+      let (pat, acts, meta) = p in
       if NetCore_Pattern.is_empty pat
       then strip_empty_rules cf0
-      else (pat, acts) :: (strip_empty_rules cf0)
+      else (pat, acts, meta) :: (strip_empty_rules cf0)
 
   let rec condense_contained tbl = match tbl with
     | [] -> []
-    | (pat1, act1) :: lst -> 
+    | (pat1, act1, meta1) :: lst ->
       match condense_contained lst with
-      | [] -> (pat1, act1) :: []
-      | (pat2, act2) :: rest -> 
+      | [] -> (pat1, act1, meta1) :: []
+      | (pat2, act2, meta2) :: rest ->
         if NetCore_Pattern.contains pat1 pat2 && Action.is_equal act1 act2 then
-          (pat2, act2) :: rest
+          (pat2, act2, meta1 @ meta2) :: rest
         else
-          (pat1, act1) :: (pat2, act2) :: rest
+          (pat1, act1, meta1) :: (pat2, act2, meta2) :: rest
 
   let opt tbl =
     condense_contained (elim_shadowed (strip_empty_rules tbl))
 
-  let inter_entry cl (pat, act) = 
+  let inter_entry cl (pat, act, meta) =
     List.fold_right 
-      (fun (pat',act') acc ->
-         (NetCore_Pattern.inter pat pat', Action.par_action act act') :: acc) cl []
+      (fun (pat',act',meta') acc ->
+         (NetCore_Pattern.inter pat pat', Action.par_action act act', meta @ meta') :: acc) cl []
 
   let inter_no_opt cl1 cl2 =
     List.fold_right (fun v acc -> (inter_entry cl2 v) @ acc) cl1 []
@@ -105,37 +105,37 @@ module Make : MAKE = functor (Action:ACTION) -> struct
      [a1] is ???
      [atom] is the first action that was applied.
   *)
-  let rec sequence_atom_no_opt p1 atom tbl2 = match tbl2 with
+  let rec sequence_atom_no_opt p1 atom m1 tbl2 = match tbl2 with
     | [] -> []
-    | (p2,a) :: tbl2' ->
+    | (p2,a,m2) :: tbl2' ->
       (NetCore_Pattern.inter
          p1
          (NetCore_Pattern.inter
             (Action.domain atom)
             (Action.sequence_range atom p2)),
-       Action.seq_action (Action.to_action atom) a) 
-      :: (sequence_atom_no_opt p1 atom tbl2')
+       Action.seq_action (Action.to_action atom) a, m1@m2)
+      :: (sequence_atom_no_opt p1 atom m1 tbl2')
 
   let rec sequence_no_opt tbl1 tbl2 =
     match tbl1 with
     | [] -> []
-    | (p,a) :: tbl1' ->
+    | (p,a,m) :: tbl1' ->
       match Action.atoms a with
-      | [] -> (p, Action.drop) :: (sequence_no_opt tbl1' tbl2)
+      | [] -> (p, Action.drop, []) :: (sequence_no_opt tbl1' tbl2)
       | atoms ->
         let sequenced_atoms = 
           (unions 
              (List.map 
-                (fun atom -> sequence_atom_no_opt p atom tbl2) atoms)) in
+                (fun atom -> sequence_atom_no_opt p atom m tbl2) atoms)) in
         sequenced_atoms @ (sequence_no_opt tbl1' tbl2)
 
   let sequence tbl1 tbl2 =
     opt (sequence_no_opt tbl1 tbl2)
 
-  let alt_entry cl (pat, act) = 
+  let alt_entry cl (pat, act, meta) =
     List.fold_right 
-      (fun (pat',act') acc ->
-        (NetCore_Pattern.inter pat pat', Action.alt_action act act') :: acc) cl []
+      (fun (pat',act',meta') acc ->
+        (NetCore_Pattern.inter pat pat', Action.alt_action act act', meta@meta') :: acc) cl []
 
   let alt_no_opt cl1 cl2 =
     opt ((List.fold_right (fun v acc -> (alt_entry cl2 v) @ acc) cl1 []) @ cl1 @ cl2)

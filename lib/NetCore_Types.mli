@@ -90,3 +90,12 @@ type pol =
 
 type value =
   | Pkt of switchId * port * packet * OpenFlow0x01.Payload.t
+
+(* done as a list to make empty options (which we expect to be common)
+ * easier. however, we might really want to have a "set" of options since
+ * its unclear for some of these what it means to have duplicate options. *)
+
+type ruleMetaOption =
+  | IdleTimeout of OpenFlow0x01_Core.timeout
+
+type ruleMeta = ruleMetaOption list

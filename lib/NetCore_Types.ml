@@ -97,3 +97,8 @@ type pol =
 type value =
   | Pkt of switchId * port * packet * OpenFlow0x01.Payload.t
 
+
+type ruleMetaOption =
+  | IdleTimeout of OpenFlow0x01_Core.timeout
+
+type ruleMeta = ruleMetaOption list

@@ -13,7 +13,7 @@ let monitor_tbl sw pol =
   let tbl = Compiler.compile_pol pol sw in
   printf "Flow table at switch %Ld is:\n%!" sw;
   List.iter
-    (fun (m,a) -> printf " %s => %s\n%!"
+    (fun (m,a,meta) -> printf " %s => %s\n%!"
         (NetCore_Pretty.string_of_pattern m)
         (NetCore_Action.Output.string_of_action a))
     tbl;

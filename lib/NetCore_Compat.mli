@@ -7,6 +7,7 @@ sig
       { prio : Packet.int16
       ; pattern : OpenFlow0x01_Core.pattern
       ; actions : OpenFlow0x01_Core.action list
+      ; idle_to : OpenFlow0x01_Core.timeout
       }
 
     val compare : t -> t -> int

@@ -14,6 +14,7 @@ struct
       { prio : Packet.int16
       ; pattern : OpenFlow0x01_Core.pattern (* = OpenFlow0x01.Match.t *)
       ; actions : OpenFlow0x01_Core.action list
+      ; idle_to : OpenFlow0x01_Core.timeout (* does not affect comparison *)
       }
 
     let compare x y =
@@ -125,18 +126,20 @@ struct
     else
       not_controller_atoms
 
-  let to_rule (prio, pattern, action) =
+  (* TODO(adf): pass in proper idle_to value *)
+  let to_rule (prio, pattern, action, meta) =
     match NetCore_Pattern.to_match0x01 pattern with
     | Some match_ ->
       Some {PrioritizedFlow.prio = prio; pattern = match_;
+            idle_to = OpenFlow0x01_Core.Permanent;
             actions = as_actionSequence
               (match match_.OpenFlow0x01_Core.inPort with
                | None -> None
-               | Some foo -> Some (to_nc_portId foo))
+               | Some pt -> Some (to_nc_portId pt))
               action}
     | None -> None
 
-  let is_overlapped = fun (p1, _) (p2, _) ->
+  let is_overlapped = fun (p1, _, _) (p2, _, _) ->
                           not (NetCore_Pattern.is_empty (NetCore_Pattern.inter p1 p2));;
 
   (* Sorts a table to minimize the number of priorites which will be needed
@@ -206,7 +209,7 @@ struct
     let prio = ref 65536 in
     let prioritized_groups = List.map (fun group -> (decr prio; (!prio, group))) groups in
 
-    let attach_priority = fun prio (pattern, action) -> (prio, pattern, action) in
+    let attach_priority = fun prio (pattern, action, meta) -> (prio, pattern, action, meta) in
     List.concat(List.map
                 (fun (prio, group) -> List.map (attach_priority prio) group)
                 prioritized_groups)
@@ -445,7 +448,7 @@ struct
   let as_actionSequence inp acts = 
     List.map (as_actionSequence1 inp) acts
 
-  let to_rule (pattern, action) =
+  let to_rule (pattern, action, meta) =
     let match_, inport = NetCore_Pattern.to_match0x04 pattern in
     (match_, as_actionSequence inport action)
 

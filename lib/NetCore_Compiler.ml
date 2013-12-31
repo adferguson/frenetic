@@ -46,41 +46,41 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
   let rec compile_pred pr sw : BoolClassifier.t = 
     match pr with
     | Hdr pat -> 
-      [(pat,NetCore_Action.Bool.pass); (all, NetCore_Action.Bool.drop)]
+      [(pat,NetCore_Action.Bool.pass,[]); (all, NetCore_Action.Bool.drop,[])]
     | OnSwitch sw' ->
       if sw = sw' then
-        [(all, NetCore_Action.Bool.pass)] 
+        [(all, NetCore_Action.Bool.pass, [])]
       else 
-        [(all, NetCore_Action.Bool.drop)]
+        [(all, NetCore_Action.Bool.drop, [])]
     | Or (pr1, pr2) ->
       BoolClassifier.union (compile_pred pr1 sw) (compile_pred pr2 sw)
     | And (pr1, pr2) ->
       BoolClassifier.sequence (compile_pred pr1 sw) (compile_pred pr2 sw)
     | Not pr' ->    
-      map (fun (a,b) -> (a, not b)) 
-        (compile_pred pr' sw @ [(all,NetCore_Action.Bool.drop)])
+      map (fun (a,b,meta) -> (a, not b, meta))
+        (compile_pred pr' sw @ [(all,NetCore_Action.Bool.drop,[])])
     | Everything -> 
-      [all,NetCore_Action.Bool.pass]
+      [all,NetCore_Action.Bool.pass,[]]
     | Nothing -> 
-      [all,NetCore_Action.Bool.drop]
+      [all,NetCore_Action.Bool.drop,[]]
 
   let rec compile_pol p sw =
     match p with
-    | HandleSwitchEvent _ -> [(all, Output.drop)]
+    | HandleSwitchEvent _ -> [(all, Output.drop, [])]
     | Action action ->
       fold_right 
         (fun e0 tbl -> 
            OutputClassifier.union 
-             [(Output.domain e0, Output.to_action e0)]
+             [(Output.domain e0, Output.to_action e0, [])]
              tbl)
         (Output.atoms (Output.from_nc_action action))
-        [(all, Output.drop)]
+        [(all, Output.drop, [])]
     | ActionChoice _ -> failwith "NYI compile_pol ActionChoice"
     | Filter pred -> 
       map 
-	(fun (a,b) -> match b with
-	  | true -> (a, Output.pass)
-	  | false -> (a, Output.drop))
+	(fun (a,b,meta) -> match b with
+	  | true -> (a, Output.pass, meta)
+	  | false -> (a, Output.drop, meta))
 	(compile_pred pred sw)
     | Union (pol1, pol2) ->
       OutputClassifier.union 
@@ -93,13 +93,13 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
     | ITE (pred, then_pol, else_pol) ->
       let then_tbl = compile_pol then_pol sw in
       let else_tbl = compile_pol else_pol sw in
-      let seq_then_else (pat, b) = match b with
+      let seq_then_else (pat, b, meta) = match b with
 	| true ->
           OutputClassifier.sequence
-            [(pat, Output.pass)] then_tbl
+            [(pat, Output.pass, meta)] then_tbl
 	| false ->
           OutputClassifier.sequence
-            [(pat, Output.pass)] else_tbl in
+            [(pat, Output.pass, meta)] else_tbl in
       Frenetic_List.concat_map seq_then_else (compile_pred pred sw)
     | Choice _ -> 
       failwith "compile_pol: not yet implemented"
@@ -118,41 +118,41 @@ module NetCoreGroupCompiler = struct
   let rec compile_pred pr sw : BoolClassifier.t= 
     match pr with
       | Hdr pat -> 
-	[(pat,NetCore_Action.Bool.pass); (all, NetCore_Action.Bool.drop)]
+	[(pat,NetCore_Action.Bool.pass,[]); (all, NetCore_Action.Bool.drop,[])]
       | OnSwitch sw' ->
         if sw = sw' then
-          [(all, NetCore_Action.Bool.pass)] 
+          [(all, NetCore_Action.Bool.pass, [])]
         else 
-          [(all, NetCore_Action.Bool.drop)]
+          [(all, NetCore_Action.Bool.drop, [])]
       | Or (pr1, pr2) ->
         BoolClassifier.union (compile_pred pr1 sw) (compile_pred pr2 sw)
       | And (pr1, pr2) ->
         BoolClassifier.sequence (compile_pred pr1 sw) (compile_pred pr2 sw)
       | Not pr' ->    
-        map (fun (a,b) -> (a, not b)) 
-          (compile_pred pr' sw @ [(all,NetCore_Action.Bool.drop)])
+        map (fun (a,b,meta) -> (a, not b, meta))
+          (compile_pred pr' sw @ [(all,NetCore_Action.Bool.drop,[])])
       | Everything -> 
-        [all,NetCore_Action.Bool.pass]
+        [all,NetCore_Action.Bool.pass,[]]
       | Nothing -> 
-        [all,NetCore_Action.Bool.drop]
+        [all,NetCore_Action.Bool.drop,[]]
 
   let rec compile_pol p sw =
     match p with
-      | HandleSwitchEvent _ -> [(all, Output.drop)]
+      | HandleSwitchEvent _ -> [(all, Output.drop, [])]
       | Action action ->
         fold_right 
           (fun e0 tbl -> 
             OutputClassifier.union 
-              [(Output.domain e0, Output.to_action e0)]
+              [(Output.domain e0, Output.to_action e0, [])]
               tbl)
           (Output.atoms (Output.from_nc_action action))
-          [(all, Output.drop)]
+          [(all, Output.drop, [])]
       | ActionChoice _ -> failwith "NYI compile_pol ActionChoice"
       | Filter pred -> 
 	map 
-	  (fun (a,b) -> match b with
-	    | true -> (a, Output.pass)
-	    | false -> (a, Output.drop))
+	  (fun (a,b,meta) -> match b with
+	    | true -> (a, Output.pass, meta)
+	    | false -> (a, Output.drop, meta))
 	  (compile_pred pred sw)
       | Union (pol1, pol2) ->
         OutputClassifier.union 
@@ -165,13 +165,13 @@ module NetCoreGroupCompiler = struct
       | ITE (pred, then_pol, else_pol) ->
 	let then_tbl = compile_pol then_pol sw in
 	let else_tbl = compile_pol else_pol sw in
-	let seq_then_else (pat, b) = match b with
+	let seq_then_else (pat, b, meta) = match b with
 	  | true ->
             OutputClassifier.sequence
-              [(pat, Output.pass)] then_tbl
+              [(pat, Output.pass, meta)] then_tbl
 	  | false ->
             OutputClassifier.sequence
-              [(pat, Output.pass)] else_tbl in
+              [(pat, Output.pass, meta)] else_tbl in
 	Frenetic_List.concat_map seq_then_else (compile_pred pred sw)
       | Choice (pol1, pol2) ->
         OutputClassifier.choice
