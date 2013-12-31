@@ -126,12 +126,17 @@ struct
     else
       not_controller_atoms
 
-  (* TODO(adf): pass in proper idle_to value *)
+  let get_idle_timeout meta =
+    try
+      match List.find (function | IdleTimeout _ -> true | _ -> false) meta with
+        IdleTimeout ito -> ito
+    with Not_found -> OpenFlow0x01_Core.Permanent
+
   let to_rule (prio, pattern, action, meta) =
     match NetCore_Pattern.to_match0x01 pattern with
     | Some match_ ->
       Some {PrioritizedFlow.prio = prio; pattern = match_;
-            idle_to = OpenFlow0x01_Core.Permanent;
+            idle_to = get_idle_timeout meta;
             actions = as_actionSequence
               (match match_.OpenFlow0x01_Core.inPort with
                | None -> None
