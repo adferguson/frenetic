@@ -322,12 +322,18 @@ module Make  = struct
     let added = PrioritizedFlowTable.diff flow_table old_flow_table in
     let removed = PrioritizedFlowTable.diff old_flow_table flow_table in
 
+    let should_notify pft =
+      match pft.PrioritizedFlow.idle_to with
+      | OpenFlow0x01_Core.ExpiresAfter _ -> true
+      | OpenFlow0x01_Core.Permanent -> false in
+
     Lwt_list.iter_s
       (fun pft ->
          Platform.send_to_switch sw 0l 
            (Message.FlowModMsg (add_flow pft.PrioritizedFlow.prio
                                          pft.PrioritizedFlow.pattern
                                          ~idle_to:pft.PrioritizedFlow.idle_to
+                                         ~notify_removed:(should_notify pft)
                                          pft.PrioritizedFlow.actions)) >>
          Lwt.return ())
       (PrioritizedFlowTable.elements added) >>
