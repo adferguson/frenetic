@@ -11,6 +11,12 @@ let string_of_port = function
   | All -> "all"
   | Here -> "pass"
 
+let string_of_outport = function
+  | Physical pid -> "fwd(" ^ (string_of_portId pid) ^ ")"
+  | Queue (pid, qid) -> "queue(" ^ (string_of_portId pid)  ^ "," ^ (Int32.to_string qid) ^ ")"
+  | All -> "all"
+  | Here -> "pass"
+
 module Format = struct
 
   let format_list fmt sep lst =
@@ -25,7 +31,7 @@ module Format = struct
     if is_all pat then
       fprintf fmt "*"
     else if is_empty pat then
-      fprintf fmt "none"
+      fprintf fmt "<none>"
     else 
       format_list fmt " && "
         (List.filter (fun x -> not (x = "")) 
@@ -50,7 +56,7 @@ module Format = struct
                                    lbl (pr new_)
 
   let output fmt (out : output) : unit =
-    fprintf fmt "@[%a%a%a%a%a%a%a%a%a%s@]"
+    fprintf fmt "@[(%a%a%a%a%a%a%a%a%a%s)@]"
       (match_modify Packet.string_of_dlAddr "dlSrc") out.outDlSrc
       (match_modify Packet.string_of_dlAddr "dlDst") out.outDlDst
       (match_modify Packet.string_of_dlVlan "dlVlan") out.outDlVlan
@@ -60,11 +66,11 @@ module Format = struct
       (match_modify Packet.string_of_nwTos "nwTos") out.outNwTos
       (match_modify string_of_int "tpSrc") out.outTpSrc
       (match_modify string_of_int "tpDst") out.outTpDst
-      (string_of_port out.outPort)
+      (string_of_outport out.outPort)
 
   let action fmt action : unit = match action with
     | SwitchAction o -> output fmt o
-    | ControllerAction _ -> fprintf fmt "controller"
+    | ControllerAction _ -> fprintf fmt "fwd(65533)"
     | ControllerQuery (time, f) -> fprintf fmt "controllerQuery %f" time
     | LeaveBufferedAction -> fprintf fmt "leaveBuffered"
 
@@ -98,20 +104,19 @@ module Format = struct
     (* pat does create a single box *)
     | Hdr ptrn -> fprintf fmt "@[%a@]" pat ptrn 
     | OnSwitch sw -> fprintf fmt "@[switch = %Ld@]" sw
-    | Not p' -> fprintf fmt "@[!%a@]" apred p'
+    | Not p' -> fprintf fmt "@[!(%a)@]" apred p'
     | Everything -> fprintf fmt "@[*@]"
-    | Nothing -> fprintf fmt "@[none@]" 
-    (* TODO(arjun): concrete syntax is "<none>", don't know how to escape *)
+    | Nothing -> fprintf fmt "@[ <none>@]"
     | Or _
     | And _ -> fprintf fmt "@[(%a)@]" pred p
 
   let rec pol fmt p = match p with
-    | Seq (p1, p2) -> fprintf fmt "@[@[%a;@ @]%a@]" cpol p1 seq_pol_list p2
+    | Seq (p1, p2) -> fprintf fmt "@[(@[%a;@ @]%a)@]" cpol p1 seq_pol_list p2
     | Union (p1, p2) -> fprintf fmt "@[%a@ +@ %a@]" cpol p1 par_pol_list p2
     | _ -> cpol fmt p
 
   and seq_pol_list fmt p = match p with
-    | Seq (p1, p2) -> fprintf fmt "@[@[%a;@]%a@]" cpol p1 seq_pol_list p2
+    | Seq (p1, p2) -> fprintf fmt "@[(@[%a;@]%a)@]" cpol p1 seq_pol_list p2
     | _ -> cpol fmt p
 
   and par_pol_list fmt p = match p with
