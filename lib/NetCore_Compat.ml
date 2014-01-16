@@ -220,8 +220,14 @@ struct
                 prioritized_groups)
 
 
+  let pam_printer = fun (p, a, m) -> Printf.printf "%s -> %s  $  Meta: %s\n%!"
+                                                   (NetCore_Pretty.string_of_pattern p)
+                                                   (NetCore_Pretty.string_of_action a)
+                                                   (NetCore_Pretty.string_of_ruleMeta m)
+
   let flow_table_of_policy sw pol0 =
     let table = sorted_table (NetCoreCompiler.compile_pol pol0 sw) in
+    (* ignore (List.map pam_printer table); *)
     List.fold_right
       (fun p acc -> match to_rule p with None -> acc | Some r -> PrioritizedFlowTable.add r acc)
       (prioritized_table table)
