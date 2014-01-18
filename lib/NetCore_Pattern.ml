@@ -76,7 +76,7 @@ module Int32Wildcard = NetCore_Wildcard.Make (struct
       let v1s = Int32.shift_right_logical v1 max_mask in
       let v2s = Int32.shift_right_logical v2 max_mask in
       if v1s = v2s
-      then if m1 < m2 then Some (v1, m1) else Some (v2, m2)
+      then if m1 <= m2 then Some (v1, m1) else Some (v2, m2)
       else None
 
     let zero = Int32.zero

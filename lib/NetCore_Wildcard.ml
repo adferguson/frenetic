@@ -45,6 +45,8 @@ module Make (Ord : OrderedType) = struct
     | WildcardNone, WildcardNone -> true
     | WildcardPartial (v1, m1), WildcardPartial (v2, m2) ->
         (Ord.compare v1 v2 = 0) && (Ord.compare m1 m2 = 0)
+        (* TODO(adf): technically, a bug here since 10.1.1.1/8
+           should equal 10.0.0.0/8. Need Ord.masked_compare! *)
     | _ -> false
 
   let contains x y = match (x, y) with
