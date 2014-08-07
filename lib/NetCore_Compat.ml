@@ -96,7 +96,7 @@ struct
     | _ -> failwith "nc_port_to_of: Don't know how to handle this port type"
 
   let output_to_of inp out = match out.outPort with
-    | P.Here -> [] (* Fishy, IMO. Shouldn't this be InPort? *)
+    | P.Here -> [Output InPort] (* Fishy, IMO. Shouldn't this be InPort? *) (* TN corrected; SwitchPort(id) was producing a drop rule *)
     | P.All -> modify out @ (Output AllPorts)
                             :: unmodify out
     | P.Physical pt ->
@@ -115,7 +115,7 @@ struct
     | ControllerQuery _ -> []
     | LeaveBufferedAction -> []
 
-  let as_actionSequence inp act = 
+  let as_actionSequence inp act =
     let of_atoms = Frenetic_List.concat_map (atom_to_of inp) act in
     let controller_atoms, not_controller_atoms =
       List.partition
@@ -244,7 +244,7 @@ struct
   let to_of_portId x = x
   let to_nc_portId x = x
 
-  let convert_of_caps_to_nc_caps caps = 
+  let convert_of_caps_to_nc_caps caps =
     { flow_stats = caps.OpenFlow0x04_Core.flow_stats;
       table_stats = caps.OpenFlow0x04_Core.table_stats;
       port_stats = caps.OpenFlow0x04_Core.port_stats;
@@ -279,7 +279,7 @@ struct
           outDlVlanPcp = dlVlanPcp; outNwSrc = nwSrc; outNwDst = nwDst;
           outNwTos = nwTos; outTpSrc = tpSrc; outTpDst = tpDst } = mods
     in
-    (maybe_openflow0x01_modification dlSrc (fun x -> SetField (OxmEthSrc (val_to_mask x)))) 
+    (maybe_openflow0x01_modification dlSrc (fun x -> SetField (OxmEthSrc (val_to_mask x))))
     @ (maybe_openflow0x01_modification dlDst (fun x -> SetField (OxmEthDst (val_to_mask x))))
     (* If vlan, create vlan tag *)
     @ (match (dlVlan, dlVlanPcp) with
@@ -334,7 +334,7 @@ struct
     | WildcardAll -> {m_value = def; m_mask = Some def}
     | WildcardNone -> {m_value = def; m_mask = Some def}
 
-  let pattern_to_oxm_match pat = 
+  let pattern_to_oxm_match pat =
     let { OpenFlow0x01_Core.dlSrc = dlSrc;
           dlDst = dlDst;
           dlTyp = dlTyp;
@@ -372,7 +372,7 @@ struct
      | Some p -> Some (Int32.of_int p)
      | _ -> None)
 
-  let get_inport = List.fold_left (fun acc oxm -> 
+  let get_inport = List.fold_left (fun acc oxm ->
       match oxm with
       | OxmInPort pp -> Some pp
       | _ -> acc) None
@@ -426,7 +426,7 @@ struct
     | _ -> failwith "nc_port_to_of: Don't know how to handle this port type"
 
   let output_to_of inp out = match out.outPort with
-    | P.Here -> [] (* Fishy, IMO. Shouldn't this be InPort? *)
+    | P.Here -> [Output InPort] (* Fishy, IMO. Shouldn't this be InPort? *) (* TN corrected; SwitchPort(id) was producing a drop rule *)
     | P.All -> modify out @ (Output AllPorts)
                             :: unmodify out
     | P.Physical pt ->
@@ -445,7 +445,7 @@ struct
     | ControllerQuery _ -> []
     | LeaveBufferedAction -> []
 
-  let as_actionSequence1 inp act = 
+  let as_actionSequence1 inp act =
     let of_atoms = Frenetic_List.concat_map (atom_to_of inp) act in
     let controller_atoms, not_controller_atoms =
       List.partition
@@ -456,7 +456,7 @@ struct
     else
       not_controller_atoms
 
-  let as_actionSequence inp acts = 
+  let as_actionSequence inp acts =
     List.map (as_actionSequence1 inp) acts
 
   let to_rule (pattern, action, meta) =
