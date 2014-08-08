@@ -327,6 +327,19 @@ module Make  = struct
       | OpenFlow0x01_Core.ExpiresAfter _ -> true
       | OpenFlow0x01_Core.Permanent -> false in
 
+      (* Need to delete before adding, otherwise same-priority, same-pattern rules will clash. For instance
+           {*} => []   deleted
+           {*} => [Output 1] added
+         will actually result in an empty flow-table unless deletion happens first. *)
+
+    Lwt_list.iter_s
+      (fun pft ->
+         Platform.send_to_switch sw 0l
+           (Message.FlowModMsg (delete_flow_strict pft.PrioritizedFlow.prio
+                                         pft.PrioritizedFlow.pattern
+                                         None)) >>
+         Lwt.return ())
+      (PrioritizedFlowTable.elements removed) >>
     Lwt_list.iter_s
       (fun pft ->
          Platform.send_to_switch sw 0l
@@ -337,14 +350,7 @@ module Make  = struct
                                          pft.PrioritizedFlow.actions)) >>
          Lwt.return ())
       (PrioritizedFlowTable.elements added) >>
-    Lwt_list.iter_s
-      (fun pft ->
-         Platform.send_to_switch sw 0l
-           (Message.FlowModMsg (delete_flow_strict pft.PrioritizedFlow.prio
-                                         pft.PrioritizedFlow.pattern
-                                         None)) >>
-         Lwt.return ())
-      (PrioritizedFlowTable.elements removed) >>
+
     Lwt.return flow_table
 
   let install_new_policies sw pol_stream =
