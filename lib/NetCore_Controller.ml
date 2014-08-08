@@ -29,7 +29,7 @@ module Query = struct
   (* switch id, match, priority *)
   type counter_ids = FlowSet.t ref
 
-  type t = 
+  type t =
     { (* Static. *)
       xid : xid
     ; atom : NetCore_Types.action_atom
@@ -72,11 +72,11 @@ module Query = struct
 
   let set_fields tbl pol atom sw =
     let qfields = query_fields_of_policy pol atom sw in
-    List.iter 
+    List.iter
       (fun match_ -> tbl := FlowSet.add (sw, match_) !tbl)
       qfields
 
-  let kill q = 
+  let kill q =
     (* let () = Log.printf "NetCore_Controller.Query" "killing (%s)\n%!" (to_string q) in *)
     Lwt_switch.turn_off q.kill_switch >>
     let _ = Lwt_mutex.unlock q.lock in
@@ -87,21 +87,21 @@ module Query = struct
   let create xid atom time cb kill_switch switches policy =
     let counter_ids = ref FlowSet.empty in
     let _ = SwitchSet.iter (set_fields counter_ids policy atom) switches in
-    let q = 
+    let q =
       { xid = xid
       ; atom = atom
       ; time = time
       ; cb = cb
-      ; policy = policy 
+      ; policy = policy
       ; counter_ids = counter_ids
       ; lock = Lwt_mutex.create ()
       ; kill_switch = kill_switch
-      ; switches = ref switches 
+      ; switches = ref switches
       ; switches_to_respond = ref switches
-      ; last_packet_count = ref Int64.zero 
-      ; this_packet_count = ref Int64.zero 
-      ; last_byte_count = ref Int64.zero 
-      ; this_byte_count = ref Int64.zero 
+      ; last_packet_count = ref Int64.zero
+      ; this_packet_count = ref Int64.zero
+      ; last_byte_count = ref Int64.zero
+      ; this_byte_count = ref Int64.zero
       } in
     let _ = try
         Lwt_switch.add_hook (Some kill_switch) (fun () -> kill q)
@@ -118,9 +118,9 @@ module Query = struct
     q.this_byte_count := Int64.zero
 
   let do_callback q =
-    let packet_count = 
+    let packet_count =
       Int64.sub !(q.this_packet_count) !(q.last_packet_count) in
-    let byte_count = 
+    let byte_count =
       Int64.sub !(q.this_byte_count) !(q.last_byte_count) in
     q.cb packet_count byte_count
 
@@ -131,12 +131,12 @@ module Query = struct
       let () = do_callback q in
       Lwt.return ()
     else
-      let open OpenFlow0x01_Stats in 
+      let open OpenFlow0x01_Stats in
       let query_msg =
-        Message.StatsRequestMsg 
+        Message.StatsRequestMsg
           (Stats.IndividualRequest { is_of_match = match_all;
 				     is_table_id = 0;
-				     is_out_port = None }) in 
+				     is_out_port = None }) in
       Lwt_mutex.lock q.lock >>
       if not (is_dead q) then
         let _ = reset q in
@@ -156,7 +156,7 @@ module Query = struct
     loop ()
 
   let handle_single_reply sw q rep =
-    (* let () = Log.printf 
+    (* let () = Log.printf
        "NetCore_Controller.Query" "handle reply (%s) (%Ld)\n    (%s)\n%!"
        (to_string q) sw (Stats.IndividualFlowStats.to_string rep) in *)
     let open Stats in
@@ -167,7 +167,7 @@ module Query = struct
     else ()
 
   let try_done q =
-    if SwitchSet.is_empty 
+    if SwitchSet.is_empty
         (SwitchSet.inter !(q.switches_to_respond) !(q.switches))
     then
       (*let () = Log.printf "NetCore_Controller.Query" "got all replies! (%s)\n%!" (to_string q) in *)
@@ -177,18 +177,18 @@ module Query = struct
 
   let handle_reply sw q reps =
     let () = List.iter (handle_single_reply sw q) reps in
-    let () = 
-      q.switches_to_respond := 
+    let () =
+      q.switches_to_respond :=
         SwitchSet.remove sw !(q.switches_to_respond) in
     try_done q
 
   let refresh_switches switches q =
     let new_switches = SwitchSet.diff switches !(q.switches) in
     q.switches := switches;
-    (* SwitchSet.iter 
+    (* SwitchSet.iter
        (fun s -> Log.printf "NetCore_Controller.Query" "refresh switch (%s) (%Ld) \n%!" (to_string q) s)
        !(q.switches);
-       SwitchSet.iter 
+       SwitchSet.iter
        (fun s -> Log.printf "NetCore_Controller.Query" "new switch (%s) (%Ld) \n%!" (to_string q) s)
        new_switches; *)
     SwitchSet.iter (set_fields q.counter_ids q.policy q.atom) new_switches
@@ -211,8 +211,8 @@ module QuerySet = struct
    * cycles, in order to properly ignore old query responses.
   *)
   let query_id_cell = ref Int32.zero
-  let gen_query_id () = 
-    query_id_cell := Int32.succ !query_id_cell; 
+  let gen_query_id () =
+    query_id_cell := Int32.succ !query_id_cell;
     !query_id_cell
 
   let queries = ref []
@@ -234,7 +234,7 @@ module QuerySet = struct
   let rec generate_query_ids pol gen_query_id : unit =
     let f atoms =
       List.iter (fun atom -> match atom with
-          | ControllerQuery (_, cb) -> 
+          | ControllerQuery (_, cb) ->
             Hashtbl.replace q_actions_to_query_ids atom (gen_query_id ())
           | _ -> ())
         atoms in
@@ -244,18 +244,18 @@ module QuerySet = struct
     | ActionChoice _ -> failwith "NYI: generate_query_ids ActionChoice"
     | ActionWithMeta (atoms, meta) -> f atoms
     | Filter _ -> ()
-    | Choice (p1, p2) 
+    | Choice (p1, p2)
     | Union (p1, p2)
     | Seq (p1, p2)
     | ITE (_, p1, p2) ->
       generate_query_ids p1 gen_query_id; generate_query_ids p2 gen_query_id
 
-  let make_query pol kill_switch atom qid : unit = 
+  let make_query pol kill_switch atom qid : unit =
     if Lwt_switch.is_on kill_switch then
       let open NetCore_Types in
       match atom with
       | ControllerQuery (time, cb) ->
-        let query = 
+        let query =
           Q.create qid atom time cb kill_switch !switches pol in
         queries := query :: !queries
       | _ -> ()
@@ -269,8 +269,8 @@ module QuerySet = struct
 
   let start pol : unit Lwt.t =
     (* If old queries are still going, stop them. *)
-    lwt () = match !query_switch with 
-      | Some s -> Lwt_switch.turn_off s 
+    lwt () = match !query_switch with
+      | Some s -> Lwt_switch.turn_off s
       | None -> Lwt.return () in
     let switch = Lwt_switch.create () in
     let () = query_switch := Some switch in
@@ -279,13 +279,13 @@ module QuerySet = struct
     let () = generate_query_ids pol gen_query_id in
     spawn_queries pol switch
 
-  let handle_reply sw xid reps = 
+  let handle_reply sw xid reps =
     try
       let q = Q.find xid !queries in
       Q.handle_reply sw q reps
     with Not_found -> ()
 
-  let stop () : unit Lwt.t = 
+  let stop () : unit Lwt.t =
     (* let () = Log.printf "NetCore_Controller.QuerySet" "stopping\n%!" in *)
     lwt () = match !query_switch with
       | Some s -> Lwt_switch.turn_off s
@@ -298,7 +298,7 @@ module QuerySet = struct
     switches := SwitchSet.add sw !switches;
     List.iter (Q.refresh_switches !switches) !queries
 
-  let remove_switch sw = 
+  let remove_switch sw =
     (* let () = Log.printf "NetCore_Controller.QuerySet" "removing switch (%Ld)\n%!" sw in *)
     switches := SwitchSet.add sw !switches;
     switches := SwitchSet.remove sw !switches;
@@ -329,7 +329,7 @@ module Make  = struct
 
     Lwt_list.iter_s
       (fun pft ->
-         Platform.send_to_switch sw 0l 
+         Platform.send_to_switch sw 0l
            (Message.FlowModMsg (add_flow pft.PrioritizedFlow.prio
                                          pft.PrioritizedFlow.pattern
                                          ~idle_to:pft.PrioritizedFlow.idle_to
@@ -355,12 +355,12 @@ module Make  = struct
       PrioritizedFlowTable.empty >>
     Lwt.return ()
 
-  let handle_packet_in pol sw pkt_in = 
+  let handle_packet_in pol sw pkt_in =
     let in_port = to_nc_portId pkt_in.port in
     try_lwt
       let pol = NetCore_Stream.now pol in
       let in_packet = parse_payload pkt_in.input_payload in
-      let in_val = 
+      let in_val =
         Pkt (sw, Physical in_port, in_packet, pkt_in.input_payload) in
 
       (* Evaluate the packet against the full policy. *)
@@ -370,21 +370,21 @@ module Make  = struct
       let classifier = NetCoreCompiler.compile_pol pol sw in
       let switch_action =
         NetCore_Action.Output.switch_part
-          (NetCoreCompiler.OutputClassifier.scan 
+          (NetCoreCompiler.OutputClassifier.scan
              classifier (Physical in_port) in_packet) in
-      let classifier_out_vals = 
+      let classifier_out_vals =
         NetCore_Semantics.eval_action switch_action in_val in
 
       (* These are packets not already processed in the data plane. *)
       let new_out_vals =
-        List.filter 
-          (fun v -> not (List.mem v classifier_out_vals)) 
+        List.filter
+          (fun v -> not (List.mem v classifier_out_vals))
           policy_out_vals in
 
       (* Calculate the action required to transform the incoming packet
        * into each of the new outgoing packets. *)
-      let action = 
-        List.fold_left 
+      let action =
+        List.fold_left
           NetCore_Action.Output.par_action
           NetCore_Action.Output.drop
           (List.map (NetCore_Action.Output.make_transformer in_val)
@@ -397,25 +397,25 @@ module Make  = struct
 
       (* TODO(adf): also, if List.length action = 0 && bufferId is None, skip sending unnecessary message *)
 
-      let out_payload = 
+      let out_payload =
         { output_payload = pkt_in.input_payload
         ; port_id = None
-        ; apply_actions = 
+        ; apply_actions =
             as_actionSequence (Some in_port) action
         } in
       if not leave_buffered then
         Platform.send_to_switch sw 0l (Message.PacketOutMsg out_payload)
       else
         Lwt.return_unit
-    with Unparsable _ -> 
+    with Unparsable _ ->
       Log.warning_f "unparsable packet"
 
-  let rec handle_switch_messages pol sw = 
+  let rec handle_switch_messages pol sw =
     let open Message in
     lwt (xid, msg) = Platform.recv_from_switch sw in
     lwt _ = match msg with
       | PacketInMsg pktIn -> handle_packet_in pol sw pktIn
-      | StatsReplyMsg (Stats.IndividualFlowRep reps) -> 
+      | StatsReplyMsg (Stats.IndividualFlowRep reps) ->
         Queries.handle_reply sw xid reps;
         Lwt.return ()
       | StatsReplyMsg r ->
@@ -457,22 +457,22 @@ module Make  = struct
        Log.error_f ~exn:exn "unhandled exception" ) >>
     begin
       Lwt.async
-        (fun () -> (* TODO(arjun): 
+        (fun () -> (* TODO(arjun):
                       confirm this gracefully discards the exception *)
-           Lwt.wrap2 NetCore_Semantics.handle_switch_events 
+           Lwt.wrap2 NetCore_Semantics.handle_switch_events
              (SwitchDown sw)
              (NetCore_Stream.now pol_stream));
       Queries.remove_switch sw;
       Log.info_f "switch %Ld disconnected.\n%!" sw
     end
 
-  let rec accept_switches pol_stream = 
+  let rec accept_switches pol_stream =
     lwt feats = Platform.accept_switch () in
     (* An exception raised by a switch thread does not kill the controller. *)
     Lwt.async (fun () -> switch_thread feats pol_stream);
     accept_switches pol_stream
 
-  let rec setup_queries pol_stream = 
+  let rec setup_queries pol_stream =
     lwt pol = Lwt_stream.next pol_stream in
     Queries.stop () >>
     Queries.start pol <&> setup_queries pol_stream
@@ -481,7 +481,7 @@ module Make  = struct
       are _not_ subjected to the current NetCore policy, so they do not
       compose nicely with NetCore operatores. This requires some deep thought,
       which is banned until after PLDI 2013. *)
-  let emit_packets pkt_stream = 
+  let emit_packets pkt_stream =
     let open PacketOut in
     let emit_pkt (sw, pt, pay) =
       let msg = {
@@ -492,7 +492,7 @@ module Make  = struct
       Platform.send_to_switch sw 0l (Message.PacketOutMsg msg) in
     Lwt_stream.iter_s emit_pkt pkt_stream
 
-  let start_controller pkt_stream pol = 
+  let start_controller pkt_stream pol =
     (* Do not delete the following printf. It is meant to be the minimal output
        from the controller. *)
     Log.info_f "controller started" >>
@@ -518,7 +518,7 @@ module MakeConsistent = struct
   let current_switches = ref SwitchSet.empty
   let switches_with_new_internal_policy = ref SwitchSet.empty
 
-  (* used to initialize newly connected switches and handle packet-in 
+  (* used to initialize newly connected switches and handle packet-in
      messages *)
   let pol_now : pol ref = ref init_pol
 
@@ -570,13 +570,13 @@ module MakeConsistent = struct
          printf " %s => %s\n%!"
            (OpenFlow0x01.Match.to_string pft.PrioritizedFlow.pattern)
            (OpenFlow0x01.Action.sequence_to_string pft.PrioritizedFlow.actions);
-         Platform.send_to_switch sw 0l 
+         Platform.send_to_switch sw 0l
            (Message.FlowModMsg (add_flow pft.PrioritizedFlow.prio
                                          pft.PrioritizedFlow.pattern
                                          pft.PrioritizedFlow.actions)) >>
          Lwt.return ())
       flow_table >>
-    Platform.send_to_switch sw 0l 
+    Platform.send_to_switch sw 0l
       (Message.FlowModMsg (add_flow 1 drop_match drop_action))
 
   let send_barrier (sw : switchId) (xid : xid) : unit Lwt.t =
@@ -585,7 +585,7 @@ module MakeConsistent = struct
 
   (* First draft: ignore barriers *)
   let install_new_policies sw ports pol_stream =
-    Lwt_stream.iter_s (fun (int, ext) -> 
+    Lwt_stream.iter_s (fun (int, ext) ->
         let int = explode_allPorts int ports in
         let ext = explode_allPorts ext ports in
         clear_switch sw >>
@@ -599,42 +599,42 @@ module MakeConsistent = struct
         configure_switch sw (Union(int,ext)))
       (NetCore_Stream.to_stream pol_stream)
 
-  let handle_packet_in sw pkt_in = 
+  let handle_packet_in sw pkt_in =
     failwith "NYI: Consistent updates handle_packet_in."
 (*
     let in_port = pkt_in.port in
     let in_packet = parse_payload pkt_in.input_payload in
     let in_val = Pkt (sw, Physical in_port, in_packet, pkt_in.input_payload) in
     let action = NetCore_Semantics.eval !pol_now in_val in
-    let out_packet = 
+    let out_packet =
       { output_payload = pkt_in.input_payload
       ; port_id = None
-      ; apply_actions = 
-         NetCore_Action.Output.as_actionSequence (Some in_port) action 
+      ; apply_actions =
+         NetCore_Action.Output.as_actionSequence (Some in_port) action
       } in
     Platform.send_to_switch sw 0l (Message.PacketOutMsg out_packet)
 *)
 
-  let rec handle_switch_messages sw = 
+  let rec handle_switch_messages sw =
     let open Message in
     lwt v = Platform.recv_from_switch sw in
     lwt _ = match v with
       | (_, PacketInMsg pkt_in) -> handle_packet_in sw pkt_in
-      | (xid, StatsReplyMsg (Stats.IndividualFlowRep reps)) -> 
+      | (xid, StatsReplyMsg (Stats.IndividualFlowRep reps)) ->
         Queries.handle_reply sw xid reps;
         Lwt.return ()
       | (xid, StatsReplyMsg r) ->
         Log.info_f
           "received unexpected stats reply type (%s)"
-          (Stats.reply_to_string r) 
+          (Stats.reply_to_string r)
       | (xid, PortStatusMsg msg) ->
         Log.info_f  "received %s" (PortStatus.to_string msg)
-      (* TODO: match on return XID for cond var broadcast *) 
-      | (xid, BarrierReply) -> 
+      (* TODO: match on return XID for cond var broadcast *)
+      | (xid, BarrierReply) ->
         (match xid = internal_policy_barrier_xid with
-         | true -> 
+         | true ->
            let new_switch_set = SwitchSet.add sw !switches_with_new_internal_policy in
-           (match new_switch_set = !current_switches with 
+           (match new_switch_set = !current_switches with
             | true ->
               Lwt_condition.broadcast all_internal_pols_installed ();
               switches_with_new_internal_policy := SwitchSet.empty;
@@ -664,17 +664,17 @@ module MakeConsistent = struct
        Log.error_f ~exn:exn "unhandled exception") >>
     begin
       Lwt.async
-        (fun () -> (* TODO(arjun): 
+        (fun () -> (* TODO(arjun):
                       confirm this gracefully discards the exception *)
            let (int_pol,ext_pol) = (NetCore_Stream.now pol_stream) in
-           Lwt.wrap2 NetCore_Semantics.handle_switch_events 
+           Lwt.wrap2 NetCore_Semantics.handle_switch_events
              (SwitchDown sw)
              (Union(int_pol,ext_pol)));
       Queries.remove_switch sw;
       Lwt.return ()
     end
 
-  let rec accept_switches pol_stream topo = 
+  let rec accept_switches pol_stream topo =
     lwt feats = Platform.accept_switch () in
     Lwt.async (fun () -> switch_thread feats pol_stream topo);
     accept_switches pol_stream topo
@@ -691,8 +691,8 @@ module MakeConsistent = struct
     lwt pol = Lwt_stream.next sugared_pol_stream in
     let ver = GenSym.next_val genSym in
     let switches = NetCore_Graph.Graph.get_switches topo in
-    let int_pol,ext_pol = 
-      match switches with 
+    let int_pol,ext_pol =
+      match switches with
       | [] -> (pol, pol)
       | _ -> gen_update_pols pol ver switches (make_extPorts topo) in
     Queries.stop () >>
@@ -700,7 +700,7 @@ module MakeConsistent = struct
     let _ = push_pol (Some (int_pol, ext_pol)) in
     accept_policies push_pol sugared_pol_stream genSym topo <&> Queries.start pol
 
-  let start_controller pkt_stream pol topo = 
+  let start_controller pkt_stream pol topo =
     let (pol_stream, push_pol) = Lwt_stream.create () in
     let genSym = GenSym.create () in
     let (stream_lwt, pol_netcore_stream) =
