@@ -371,6 +371,17 @@ module Make  = struct
 
       (* Evaluate the packet against the full policy. *)
       let policy_out_vals = NetCore_Semantics.eval pol in_val in
+      
+      (* Flowlog never produces rules that do BOTH fwd(controller) and fwd(k).
+         If a packet will trigger an update or an external action, that packet will
+         always be handled entirely by the controller. 
+
+         If a packet matches the flow-table, it means that it's a "catching-up" packet,
+         where it has arrived at the controller before the new flow-table was set. 
+         Such packets should be rare. 
+
+         It would thus be unsafe to remove actions covered by the flow-table,
+         as only the controller's instructions will apply to this packet.*)
 
       (* Evaluate the packet against the flow table on the switch. *)
       let classifier = NetCoreCompiler.compile_pol pol sw in
@@ -382,11 +393,21 @@ module Make  = struct
         NetCore_Semantics.eval_action switch_action in_val in
 
       (* These are packets not already processed in the data plane. *)
-      let new_out_vals =
+      let remaining_out_vals =
         List.filter
           (fun v -> not (List.mem v classifier_out_vals))
           policy_out_vals in
 
+      (* Log a warning that a catch-up packet was processed by the controller: *)
+      if (List.exists (fun v -> (List.mem v classifier_out_vals)) policy_out_vals) then        
+      begin
+        printf "  NetCore: Packet arrived at controller; some actions were already specified by flow tables. Possible 'catching up' packet?\n%!";
+        printf "  NetCore: { sw = %Ld; in_port = %d; payload = %s }\n%!"     
+          sw
+          pkt_in.port
+          (Packet.to_string in_packet);
+      end;
+      
       (* Calculate the action required to transform the incoming packet
        * into each of the new outgoing packets. *)
       let action =
@@ -394,12 +415,12 @@ module Make  = struct
           NetCore_Action.Output.par_action
           NetCore_Action.Output.drop
           (List.map (NetCore_Action.Output.make_transformer in_val)
-             new_out_vals) in
+             policy_out_vals) in
 
       (* Corresponds to LeaveBufferedAction -- the policy has left us
         * with a single, untransformed output packet. *)
       let leave_buffered = List.length action = 0 &&
-                           List.length new_out_vals = 1 in
+                           List.length remaining_out_vals = 1 in
 
       (* TODO(adf): also, if List.length action = 0 && bufferId is None, skip sending unnecessary message *)
 
