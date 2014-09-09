@@ -312,6 +312,12 @@ module Make  = struct
 
   module Queries = QuerySet
 
+  (* Hack to avoid Lwt-race between Flowlog switch proxies and NetCore switch listeners.
+     Core issue that respond_to_notification must return values, not a thread, because it's
+     called from the packet_in callback that is invoked from eval_action, and the callback has
+     a value type, not 'a Lwt.t. So we must apply the mutex further out. *)
+  let controller_mutex = Lwt_mutex.create ();;
+
   let configure_switch (sw : switchId) (pol : pol)
                        (old_flow_table : PrioritizedFlowTable.t):
                        PrioritizedFlowTable.t Lwt.t =
@@ -371,14 +377,14 @@ module Make  = struct
 
       (* Evaluate the packet against the full policy. *)
       let policy_out_vals = NetCore_Semantics.eval pol in_val in
-      
+
       (* Flowlog never produces rules that do BOTH fwd(controller) and fwd(k).
          If a packet will trigger an update or an external action, that packet will
-         always be handled entirely by the controller. 
+         always be handled entirely by the controller.
 
          If a packet matches the flow-table, it means that it's a "catching-up" packet,
-         where it has arrived at the controller before the new flow-table was set. 
-         Such packets should be rare. 
+         where it has arrived at the controller before the new flow-table was set.
+         Such packets should be rare.
 
          It would thus be unsafe to remove actions covered by the flow-table,
          as only the controller's instructions will apply to this packet.*)
@@ -389,6 +395,9 @@ module Make  = struct
         NetCore_Action.Output.switch_part
           (NetCoreCompiler.OutputClassifier.scan
              classifier (Physical in_port) in_packet) in
+
+      Lwt_mutex.with_lock controller_mutex (fun () ->
+
       let classifier_out_vals =
         NetCore_Semantics.eval_action switch_action in_val in
 
@@ -399,15 +408,15 @@ module Make  = struct
           policy_out_vals in
 
       (* Log a warning that a catch-up packet was processed by the controller: *)
-      if (List.exists (fun v -> (List.mem v classifier_out_vals)) policy_out_vals) then        
+      if (List.exists (fun v -> (List.mem v classifier_out_vals)) policy_out_vals) then
       begin
         printf "  NetCore: Packet arrived at controller; some actions were already specified by flow tables. Possible 'catching up' packet?\n%!";
-        printf "  NetCore: { sw = %Ld; in_port = %d; payload = %s }\n%!"     
+        printf "  NetCore: { sw = %Ld; in_port = %d; payload = %s }\n%!"
           sw
           pkt_in.port
           (Packet.to_string in_packet);
       end;
-      
+
       (* Calculate the action required to transform the incoming packet
        * into each of the new outgoing packets. *)
       let action =
@@ -433,7 +442,7 @@ module Make  = struct
       if not leave_buffered then
         Platform.send_to_switch sw 0l (Message.PacketOutMsg out_payload)
       else
-        Lwt.return_unit
+        Lwt.return_unit)
     with Unparsable _ ->
       Log.warning_f "unparsable packet"
 
