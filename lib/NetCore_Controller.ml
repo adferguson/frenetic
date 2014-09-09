@@ -306,17 +306,22 @@ module QuerySet = struct
 
 end
 
+
+  (* Hack to avoid Lwt-race between Flowlog switch proxies and NetCore switch listeners.
+     Core issue that respond_to_notification must return values, not a thread, because it's
+     called from the packet_in callback that is invoked from eval_action, and the callback has
+     a value type, not 'a Lwt.t. So we must apply the mutex further out.
+
+    Will go away when we upgrade to async.
+   *)
+  let controller_mutex = Lwt_mutex.create ();;
+
+
 module Make  = struct
 
   open Compat
 
   module Queries = QuerySet
-
-  (* Hack to avoid Lwt-race between Flowlog switch proxies and NetCore switch listeners.
-     Core issue that respond_to_notification must return values, not a thread, because it's
-     called from the packet_in callback that is invoked from eval_action, and the callback has
-     a value type, not 'a Lwt.t. So we must apply the mutex further out. *)
-  let controller_mutex = Lwt_mutex.create ();;
 
   let configure_switch (sw : switchId) (pol : pol)
                        (old_flow_table : PrioritizedFlowTable.t):
