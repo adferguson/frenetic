@@ -401,6 +401,9 @@ module Make  = struct
           (NetCoreCompiler.OutputClassifier.scan
              classifier (Physical in_port) in_packet) in
 
+      printf "NETCORE: evaluated policy out vals: %s\n%!" (String.concat "," (List.map NetCore_Pretty.string_of_value policy_out_vals));
+      printf "NETCORE: evaluated switch action: %s\n%!" (NetCore_Pretty.string_of_action switch_action);
+
       Lwt_mutex.with_lock controller_mutex (fun () ->
 
       let classifier_out_vals =
@@ -438,12 +441,17 @@ module Make  = struct
 
       (* TODO(adf): also, if List.length action = 0 && bufferId is None, skip sending unnecessary message *)
 
+      printf "NETCORE: filtered action: %s\nleave buffered:%b\n%!" (NetCore_Pretty.string_of_action action) leave_buffered;
+
       let out_payload =
         { output_payload = pkt_in.input_payload
-        ; port_id = None
+        ; port_id = Some (Int32.to_int in_port)(*None*) (*TN debug*)
         ; apply_actions =
             as_actionSequence (Some in_port) action
         } in
+
+        printf "packet_out: %s\n%!" (PacketOut.to_string out_payload);
+
       if not leave_buffered then
         Platform.send_to_switch sw 0l (Message.PacketOutMsg out_payload)
       else

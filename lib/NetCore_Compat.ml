@@ -95,8 +95,9 @@ struct
     | P.Here -> InPort
     | _ -> failwith "nc_port_to_of: Don't know how to handle this port type"
 
+  (* TN: modified: need to allow modifications + InPort *)
   let output_to_of inp out = match out.outPort with
-    | P.Here -> [Output InPort] (* Fishy, IMO. Shouldn't this be InPort? *) (* TN corrected; SwitchPort(id) was producing a drop rule *)
+    | P.Here -> modify out @ (Output InPort) :: unmodify out
     | P.All -> modify out @ (Output AllPorts)
                             :: unmodify out
     | P.Physical pt ->
@@ -116,7 +117,9 @@ struct
     | LeaveBufferedAction -> []
 
   let as_actionSequence inp act =
+    Printf.printf "as_actionSequence: %s\n%!" (NetCore_Pretty.string_of_action act);
     let of_atoms = Frenetic_List.concat_map (atom_to_of inp) act in
+    Printf.printf "of_atoms: %s\n%!" (Action.sequence_to_string of_atoms);
     let controller_atoms, not_controller_atoms =
       List.partition
         (function | Output (Controller _) -> true | _ -> false)
