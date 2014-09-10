@@ -117,9 +117,9 @@ struct
     | LeaveBufferedAction -> []
 
   let as_actionSequence inp act =
-    Printf.printf "as_actionSequence: %s\n%!" (NetCore_Pretty.string_of_action act);
+    (*Printf.printf "as_actionSequence: %s\n%!" (NetCore_Pretty.string_of_action act);*)
     let of_atoms = Frenetic_List.concat_map (atom_to_of inp) act in
-    Printf.printf "of_atoms: %s\n%!" (Action.sequence_to_string of_atoms);
+    (*Printf.printf "of_atoms: %s\n%!" (Action.sequence_to_string of_atoms);*)
     let controller_atoms, not_controller_atoms =
       List.partition
         (function | Output (Controller _) -> true | _ -> false)

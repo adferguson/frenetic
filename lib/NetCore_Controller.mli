@@ -2,8 +2,6 @@ open OpenFlow0x01
 open Packet
 open NetCore_Types
 
-val controller_mutex: Lwt_mutex.t
-
 val start_controller :
   (switchId * portId * OpenFlow0x01_Core.payload) Lwt_stream.t
   -> pol NetCore_Stream.t

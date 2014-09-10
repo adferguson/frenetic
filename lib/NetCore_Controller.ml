@@ -306,22 +306,16 @@ module QuerySet = struct
 
 end
 
-
-  (* Hack to avoid Lwt-race between Flowlog switch proxies and NetCore switch listeners.
-     Core issue that respond_to_notification must return values, not a thread, because it's
-     called from the packet_in callback that is invoked from eval_action, and the callback has
-     a value type, not 'a Lwt.t. So we must apply the mutex further out.
-
-    Will go away when we upgrade to async.
-   *)
-  let controller_mutex = Lwt_mutex.create ();;
-
-
 module Make  = struct
 
   open Compat
 
   module Queries = QuerySet
+
+  (* Flowlog's controller function is protected by a Thread mutex.
+     Need to protect us from having multiple LWTs hitting that mutex at the same time,
+     or we will deadlock (since all LWTs are part of the same Thread). *)
+  let controller_mutex = Lwt_mutex.create ();;
 
   let configure_switch (sw : switchId) (pol : pol)
                        (old_flow_table : PrioritizedFlowTable.t):
@@ -373,16 +367,22 @@ module Make  = struct
     Lwt.return ()
 
   let handle_packet_in pol sw pkt_in =
+    printf "NETCORE: handle_packet_in. thread id = %d\n%!" (Thread.id (Thread.self ()));
+
     let in_port = to_nc_portId pkt_in.port in
     try_lwt
+      Lwt_mutex.with_lock controller_mutex (fun () ->
+
       let pol = NetCore_Stream.now pol in
       let in_packet = parse_payload pkt_in.input_payload in
       let in_val =
         Pkt (sw, Physical in_port, in_packet, pkt_in.input_payload) in
 
+      printf "NETCORE: evaluating packet. thread id = %d\n%!" (Thread.id (Thread.self ()));
       (* Evaluate the packet against the full policy. *)
       let policy_out_vals = NetCore_Semantics.eval pol in_val in
 
+      printf "NETCORE: evaluated packet.\n%!";
       (* Flowlog never produces rules that do BOTH fwd(controller) and fwd(k).
          If a packet will trigger an update or an external action, that packet will
          always be handled entirely by the controller.
@@ -400,8 +400,6 @@ module Make  = struct
         NetCore_Action.Output.switch_part
           (NetCoreCompiler.OutputClassifier.scan
              classifier (Physical in_port) in_packet) in
-
-      Lwt_mutex.with_lock controller_mutex (fun () ->
 
       let classifier_out_vals =
         NetCore_Semantics.eval_action switch_action in_val in
@@ -482,9 +480,10 @@ module Make  = struct
         Printf.printf "Unhandled OpenFlow Vendor Message\n%!";
         Lwt.return ()
       | FlowRemovedMsg frm ->
-        Lwt.wrap2 NetCore_Semantics.handle_switch_events
-                  (FlowRemoved (sw, frm))
-                  (NetCore_Stream.now pol)
+        Lwt_mutex.with_lock controller_mutex (fun () ->
+          Lwt.wrap2 NetCore_Semantics.handle_switch_events
+                    (FlowRemoved (sw, frm))
+                    (NetCore_Stream.now pol))
       | _ -> Lwt.return () in
     handle_switch_messages pol sw
 
@@ -494,9 +493,10 @@ module Make  = struct
     Log.info_f "switch %Ld connected.\n%!" sw >>
     let _ = Queries.add_switch sw in
     (try_lwt
-       lwt _ = Lwt.wrap2 NetCore_Semantics.handle_switch_events
-           (SwitchUp (sw, to_nc_features features))
-           (NetCore_Stream.now pol_stream) in
+       lwt _ = Lwt_mutex.with_lock controller_mutex (fun () ->
+              Lwt.wrap2 NetCore_Semantics.handle_switch_events
+             (SwitchUp (sw, to_nc_features features))
+           (  NetCore_Stream.now pol_stream)) in
        Lwt.pick [ install_new_policies sw pol_stream;
                   handle_switch_messages pol_stream sw ]
      with exn ->
@@ -505,9 +505,10 @@ module Make  = struct
       Lwt.async
         (fun () -> (* TODO(arjun):
                       confirm this gracefully discards the exception *)
+        Lwt_mutex.with_lock controller_mutex (fun () ->
            Lwt.wrap2 NetCore_Semantics.handle_switch_events
              (SwitchDown sw)
-             (NetCore_Stream.now pol_stream));
+             (NetCore_Stream.now pol_stream)));
       Queries.remove_switch sw;
       Log.info_f "switch %Ld disconnected.\n%!" sw
     end
@@ -530,12 +531,14 @@ module Make  = struct
   let emit_packets pkt_stream =
     let open PacketOut in
     let emit_pkt (sw, pt, pay) =
+      printf "NETCORE emit_pkt: status of LwT lock: %b\n%!" (Lwt_mutex.is_locked controller_mutex);
       let msg = {
         output_payload = pay;
         port_id = None;
         apply_actions = [Output (PhysicalPort (to_of_portId pt))]
       } in
-      Platform.send_to_switch sw 0l (Message.PacketOutMsg msg) in
+      Platform.send_to_switch sw 0l (Message.PacketOutMsg msg);
+      Lwt.return (printf "NETCORE emit_pkt sent. Lock: %b\n%!" (Lwt_mutex.is_locked controller_mutex)) in
     Lwt_stream.iter_s emit_pkt pkt_stream
 
   let start_controller pkt_stream pol =
