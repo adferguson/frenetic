@@ -367,7 +367,7 @@ module Make  = struct
     Lwt.return ()
 
   let handle_packet_in pol sw pkt_in =
-    printf "NETCORE: handle_packet_in. thread id = %d\n%!" (Thread.id (Thread.self ()));
+    (*printf "NETCORE: handle_packet_in. thread id = %d\n%!" (Thread.id (Thread.self ()));*)
 
     let in_port = to_nc_portId pkt_in.port in
     try_lwt
@@ -378,11 +378,11 @@ module Make  = struct
       let in_val =
         Pkt (sw, Physical in_port, in_packet, pkt_in.input_payload) in
 
-      printf "NETCORE: evaluating packet. thread id = %d\n%!" (Thread.id (Thread.self ()));
+      (*printf "NETCORE: evaluating packet. thread id = %d\n%!" (Thread.id (Thread.self ()));*)
       (* Evaluate the packet against the full policy. *)
       let policy_out_vals = NetCore_Semantics.eval pol in_val in
 
-      printf "NETCORE: evaluated packet.\n%!";
+      (*printf "NETCORE: evaluated packet.\n%!";*)
       (* Flowlog never produces rules that do BOTH fwd(controller) and fwd(k).
          If a packet will trigger an update or an external action, that packet will
          always be handled entirely by the controller.
@@ -531,14 +531,15 @@ module Make  = struct
   let emit_packets pkt_stream =
     let open PacketOut in
     let emit_pkt (sw, pt, pay) =
-      printf "NETCORE emit_pkt: status of LwT lock: %b\n%!" (Lwt_mutex.is_locked controller_mutex);
+      (*printf "NETCORE emit_pkt: status of LwT lock: %b\n%!" (Lwt_mutex.is_locked controller_mutex);*)
       let msg = {
         output_payload = pay;
         port_id = None;
         apply_actions = [Output (PhysicalPort (to_of_portId pt))]
       } in
       Platform.send_to_switch sw 0l (Message.PacketOutMsg msg);
-      Lwt.return (printf "NETCORE emit_pkt sent. Lock: %b\n%!" (Lwt_mutex.is_locked controller_mutex)) in
+      Lwt.return () in
+      (*Lwt.return (printf "NETCORE emit_pkt sent. Lock: %b\n%!" (Lwt_mutex.is_locked controller_mutex)) in*)
     Lwt_stream.iter_s emit_pkt pkt_stream
 
   let start_controller pkt_stream pol =
