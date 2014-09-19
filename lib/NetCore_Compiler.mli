@@ -1,12 +1,17 @@
 
-module type POLICYCOMPILER = 
+module type POLICYCOMPILER =
 sig
   module OutputClassifier : NetCore_Classifier.CLASSIFIER
   module BoolClassifier : NetCore_Classifier.CLASSIFIER
 
-  val compile_pol : 
-    NetCore_Types.pol 
-    -> OpenFlow0x01.switchId 
+  val compile_pol :
+    NetCore_Types.pol
+    -> OpenFlow0x01.switchId
+    -> OutputClassifier.t
+
+  val inport_filtered_compile_pol :
+    NetCore_Types.pol
+    -> OpenFlow0x01.switchId
     -> OutputClassifier.t
 
   val compile_pred :
@@ -51,15 +56,21 @@ module NetCoreCompiler : sig
   module BoolClassifier : NetCore_Classifier.CLASSIFIER
     with type action = NetCore_Action.Bool.t
 
-  val compile_pol : 
-    NetCore_Types.pol 
-    -> OpenFlow0x01.switchId 
+  val compile_pol :
+    NetCore_Types.pol
+    -> OpenFlow0x01.switchId
     -> OutputClassifier.t
 
   val compile_pred :
     NetCore_Types.pred
     -> OpenFlow0x01.switchId
     -> BoolClassifier.t
+
+val inport_filtered_compile_pol :
+    NetCore_Types.pol
+    -> OpenFlow0x01.switchId
+    -> OutputClassifier.t
+
 end
 
 
@@ -69,9 +80,9 @@ module NetCoreGroupCompiler : sig
   module BoolClassifier : NetCore_Classifier.CLASSIFIER
     with type action = NetCore_Action.Bool.t
 
-  val compile_pol : 
-    NetCore_Types.pol 
-    -> OpenFlow0x01.switchId 
+  val compile_pol :
+    NetCore_Types.pol
+    -> OpenFlow0x01.switchId
     -> OutputClassifier.t
 
   val compile_pred :
