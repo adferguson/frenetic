@@ -9,11 +9,6 @@ sig
     -> OpenFlow0x01.switchId
     -> OutputClassifier.t
 
-  val inport_filtered_compile_pol :
-    NetCore_Types.pol
-    -> OpenFlow0x01.switchId
-    -> OutputClassifier.t
-
   val compile_pred :
     NetCore_Types.pred
     -> OpenFlow0x01.switchId
@@ -65,12 +60,6 @@ module NetCoreCompiler : sig
     NetCore_Types.pred
     -> OpenFlow0x01.switchId
     -> BoolClassifier.t
-
-val inport_filtered_compile_pol :
-    NetCore_Types.pol
-    -> OpenFlow0x01.switchId
-    -> OutputClassifier.t
-
 end
 
 

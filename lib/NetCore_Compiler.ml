@@ -27,11 +27,6 @@ sig
     -> OpenFlow0x01.switchId
     -> OutputClassifier.t
 
-  val inport_filtered_compile_pol :
-    NetCore_Types.pol
-    -> OpenFlow0x01.switchId
-    -> OutputClassifier.t
-
   val compile_pred :
     NetCore_Types.pred
     -> OpenFlow0x01.switchId
@@ -69,7 +64,7 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
     | Nothing ->
       [all,NetCore_Action.Bool.drop,[]]
 
-  let rec compile_pol p sw =
+  let rec compile_pol_helper p sw =
     let compile_action action meta =
       fold_right
         (fun e0 tbl ->
@@ -80,8 +75,10 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
         [(all, Output.drop, [])] in
     match p with
     | HandleSwitchEvent _ -> [(all, Output.drop, [])]
-    | Action action -> compile_action action []
-    | ActionChoice _ -> failwith "NYI compile_pol ActionChoice"
+    | Action action ->
+              (*Printf.printf "compile_action for: %s\n%!" (NetCore_Pretty.string_of_action action);*)
+      compile_action action []
+    | ActionChoice _ -> failwith "NYI compile_pol_helper ActionChoice"
     | ActionWithMeta (action, meta) -> compile_action action meta
     | Filter pred ->
       map
@@ -91,15 +88,15 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
 	(compile_pred pred sw)
     | Union (pol1, pol2) ->
       OutputClassifier.union
-        (compile_pol pol1 sw)
-        (compile_pol pol2 sw)
+        (compile_pol_helper pol1 sw)
+        (compile_pol_helper pol2 sw)
     | Seq (pol1, pol2) ->
       OutputClassifier.sequence
-        (compile_pol pol1 sw)
-        (compile_pol pol2 sw)
+        (compile_pol_helper pol1 sw)
+        (compile_pol_helper pol2 sw)
     | ITE (pred, then_pol, else_pol) ->
-      let then_tbl = compile_pol then_pol sw in
-      let else_tbl = compile_pol else_pol sw in
+      let then_tbl = compile_pol_helper then_pol sw in
+      let else_tbl = compile_pol_helper else_pol sw in
       let seq_then_else (pat, b, meta) = match b with
 	| true ->
           OutputClassifier.sequence
@@ -109,7 +106,7 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
             [(pat, Output.pass, meta)] else_tbl in
       Frenetic_List.concat_map seq_then_else (compile_pred pred sw)
     | Choice _ ->
-      failwith "compile_pol: not yet implemented"
+      failwith "compile_pol_helper: not yet implemented";;
 
   (* OutputClassifier.t is: (NetCore_Types.ptrn * [Output.t] action * NetCore_Types.ruleMeta) list *)
   (* Detect situations where there is no in_port constraint in the predicate, yet there is a concrete output port in the action.
@@ -124,18 +121,37 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
          (Output.atoms act) []) in (* maintain action atom ordering*)
     (new_ptrn, new_act, rmeta);;
 
-  let inport_filtered_compile_pol p sw  =
-    let unsafe_table = compile_pol p sw in
+  let compile_pol p sw  =
+    let unsafe_table = compile_pol_helper p sw in
+    (*unsafe_table;;*)
+
+  (*let pam_printer = fun (p, a, m) -> Printf.printf "%s -> %s  $  Meta: %s\n%!"
+                                                   (NetCore_Pretty.string_of_pattern p)
+                                                   (NetCore_Pretty.string_of_action (Output.atoms a))
+                                                   (NetCore_Pretty.string_of_ruleMeta m) in
+
+
+    Printf.printf "\n\nINPORT_FILTERED_COMPILE: Switch: %Ld.\n%!" sw;
+    ignore (List.map pam_printer unsafe_table);*)
+
+
       (* fold_right to maintain ordering *)
       fold_right (fun (ptrn,act,rmeta) acc ->
-          (* Is this a dangerous rule? I.e., no port constraint in pred? *)
           match ptrn.ptrnInPort with
             | NetCore_Wildcard.WildcardAll ->
+
+(*
+              (* Is this a dangerous rule? I.e., no port constraint in pred? *)
               let (outports_in_action: NetCore_Types.port list) =
                 fold_left (fun acc2 atom -> match atom with | SwitchAction(outp) -> outp.outPort::acc2 | _ -> acc2) [] (Output.atoms act) in
               let new_rules = fold_right (fun inport acc2 -> (make_inport_rule ptrn act rmeta inport)::acc2) outports_in_action [] in
+
+              (* keep original rule, but precede by specific checks for every port used in action *)
                 (new_rules@[(ptrn,act,rmeta)])@acc
+              *)
+      (ptrn,act,rmeta)::acc
             | _ ->
+              (* predicate has constraint on in_port; keep the rule by itself *)
               (ptrn,act,rmeta)::acc)
         unsafe_table [];;
 
