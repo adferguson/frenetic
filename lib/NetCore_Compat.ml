@@ -228,45 +228,14 @@ struct
                                                    (NetCore_Pretty.string_of_action a)
                                                    (NetCore_Pretty.string_of_ruleMeta m)
 
-  let rec debug_find_multimods p : unit =
-    match p with
-    | HandleSwitchEvent _ -> ()
-
-    | Action action
-    | ActionWithMeta (action, _) ->
-        let sas = List.filter (fun atom -> match atom with | SwitchAction(out) -> true | _ -> false) action in
-        List.iter (fun swact -> match swact with SwitchAction(out) ->
-            if (out.outDlSrc <> None && out.outDlDst <> None) then
-              Printf.printf "debug_find_multimods SAS HAD MULTIPLE DL MODS for: %s\n%!" (NetCore_Pretty.string_of_action action);
-            if (out.outDlSrc <> None && out.outDlSrc == out.outDlDst) then
-              Printf.printf "debug_find_multimods HAD EQUAL DL MODS for: %s\n%!" (NetCore_Pretty.string_of_action action)) sas;
-    | ActionChoice _ -> ()
-
-    | Filter pred -> ()
-    | Union (pol1, pol2) ->
-      debug_find_multimods pol1;
-      debug_find_multimods pol2;
-    | Seq (pol1, pol2) ->
-      debug_find_multimods pol1;
-      debug_find_multimods pol2;
-    | ITE (pred, then_pol, else_pol) ->
-      debug_find_multimods then_pol;
-      debug_find_multimods else_pol;
-    | Choice _ ->
-      failwith "compile_pol: not yet implemented";;
-
 
   let flow_table_of_policy sw pol0 =
      Printf.printf "flow_table_of_policy %Ld\n%!" sw;
     (* Printf.printf "---> %s\n" (NetCore_Pretty.string_of_pol pol0);*)
 
-    debug_find_multimods pol0;
-
-    let bad_table = sorted_table (NetCoreCompiler.compile_pol pol0 sw) in
-    Printf.printf "\n\nOLD SORTED_TABLE: Switch: %Ld.\n%!" sw;
-    ignore (List.map pam_printer bad_table);
-    let table = bad_table in
-    (*let table = sorted_table (NetCoreCompiler.inport_filtered_compile_pol pol0 sw) in*)
+    let table = sorted_table (NetCoreCompiler.compile_pol pol0 sw) in
+    (*Printf.printf "\n\nOLD SORTED_TABLE: Switch: %Ld.\n%!" sw;
+    ignore (List.map pam_printer bad_table);*)
 
     List.fold_right
       (fun p acc -> match to_rule p with None -> acc | Some r -> PrioritizedFlowTable.add r acc)

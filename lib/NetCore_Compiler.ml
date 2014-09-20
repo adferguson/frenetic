@@ -116,16 +116,17 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
     (* maintain ordering of action atoms when substituting *)
     let new_act = Output.from_nc_action (fold_right
            (fun atom acc -> match atom with
-              | SwitchAction(x) when x.outPort == inport -> SwitchAction({x with outPort=Here})::acc
+              | SwitchAction(x) when x.outPort = inport -> SwitchAction({x with outPort=Here})::acc
               | _ ->atom::acc)
          (Output.atoms act) []) in (* maintain action atom ordering*)
     (new_ptrn, new_act, rmeta);;
 
   let compile_pol p sw  =
+    (* may contain rules without a port in pred, but concrete ports in output. need to use in_port action. *)
     let unsafe_table = compile_pol_helper p sw in
-    (*unsafe_table;;*)
 
-  (*let pam_printer = fun (p, a, m) -> Printf.printf "%s -> %s  $  Meta: %s\n%!"
+(*
+  let pam_printer = fun (p, a, m) -> Printf.printf "%s -> %s  $  Meta: %s\n%!"
                                                    (NetCore_Pretty.string_of_pattern p)
                                                    (NetCore_Pretty.string_of_action (Output.atoms a))
                                                    (NetCore_Pretty.string_of_ruleMeta m) in
@@ -137,22 +138,50 @@ module CompilePol (Output : NetCore_Action.COMPILER_ACTION0x01) = struct
 
       (* fold_right to maintain ordering *)
       fold_right (fun (ptrn,act,rmeta) acc ->
+
+    (* debug*)
+    (*
+        let sas = List.filter (fun atom -> match atom with | SwitchAction(out) -> true | _ -> false) (Output.atoms act) in
+        List.iter (fun swact -> match swact with SwitchAction(out) ->
+            if (out.outDlSrc <> None && out.outDlSrc = out.outDlDst) then
+              Printf.printf "debug in safety EQUAL DL MODS for: %s\n%!" (Output.string_of_action act)) sas;
+*)
+
           match ptrn.ptrnInPort with
             | NetCore_Wildcard.WildcardAll ->
+              (* Dangerous rule. I.e., no port constraint in pred.
+                 Caveat: if this code is called more than once, we'll get identical added rules. *)
 
-(*
-              (* Is this a dangerous rule? I.e., no port constraint in pred? *)
               let (outports_in_action: NetCore_Types.port list) =
-                fold_left (fun acc2 atom -> match atom with | SwitchAction(outp) -> outp.outPort::acc2 | _ -> acc2) [] (Output.atoms act) in
+                (* "All" action is safe (implicit no backflood). Including ALL here leads to confusing bugs,
+                   as a rule like dlTyp=0x1001 --> all becomes
+                   dlTyp=0x1001 & inport=any --> here (which leads to loops) *)
+                fold_left (fun acc2 atom -> match atom with
+                    | SwitchAction(outp) ->
+                      (match outp.outPort with
+                          | Physical(_) -> outp.outPort::acc2
+                          | _ -> acc2)
+                    | _ -> acc2) [] (Output.atoms act) in
+
               let new_rules = fold_right (fun inport acc2 -> (make_inport_rule ptrn act rmeta inport)::acc2) outports_in_action [] in
 
+              (*
+              Printf.printf "(%Ld) Current rule:\n%!" sw;
+              pam_printer (ptrn,act,rmeta);
+              Printf.printf "(%Ld) Size of outports_in_action: %d. NC act: %s. Output act: %s.\n%!" sw (List.length outports_in_action)
+                (NetCore_Pretty.string_of_action (Output.atoms act))
+                (Output.string_of_action act);
+
               (* keep original rule, but precede by specific checks for every port used in action *)
-                (new_rules@[(ptrn,act,rmeta)])@acc
-              *)
-      (ptrn,act,rmeta)::acc
+              let result = (new_rules@[(ptrn,act,rmeta)])@acc in
+              Printf.printf "(%Ld) Full new list:\n%!" sw;
+              iter pam_printer result; (* could something be happening afterward? optimization gone wrong? A: no. before. *)
+              result *)
+              (new_rules@[(ptrn,act,rmeta)])@acc
             | _ ->
               (* predicate has constraint on in_port; keep the rule by itself *)
               (ptrn,act,rmeta)::acc)
+        (* fold over every rule *)
         unsafe_table [];;
 
 
