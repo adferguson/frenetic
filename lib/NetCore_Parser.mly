@@ -6,28 +6,28 @@
  module P = NetCore_Pattern
 
  let int8_of_int64 (n : Int64.t) : int =
-   if Int64.compare n Int64.zero >= 0 && 
+   if Int64.compare n Int64.zero >= 0 &&
      Int64.compare n (Int64.of_int 0xFF) <= 0 then
      Int64.to_int n
    else
      raise Parsing.Parse_error
 
  let int12_of_int64 (n : Int64.t) : int =
-   if Int64.compare n Int64.zero >= 0 && 
+   if Int64.compare n Int64.zero >= 0 &&
      Int64.compare n (Int64.of_int 0xFFF) <= 0 then
      Int64.to_int n
    else
      raise Parsing.Parse_error
 
  let int16_of_int64 (n : Int64.t) : int =
-   if Int64.compare n Int64.zero >= 0 && 
+   if Int64.compare n Int64.zero >= 0 &&
      Int64.compare n (Int64.of_int 0xFFFF) <= 0 then
      Int64.to_int n
    else
      raise Parsing.Parse_error
 
  let int32_of_int64 (n : Int64.t) : int32 =
-   if Int64.compare n Int64.zero >= 0 && 
+   if Int64.compare n Int64.zero >= 0 &&
      Int64.compare n (Int64.of_int32 Int32.max_int) <= 0 then
      (Int32.of_int (Int64.to_int n))
    else
@@ -42,14 +42,14 @@
 
  let nat_hash = Hashtbl.create 7
 
- let mk_nat ip = 
-   (if not (Hashtbl.mem nat_hash ip) then 
+ let mk_nat ip =
+   (if not (Hashtbl.mem nat_hash ip) then
        Hashtbl.add nat_hash ip (NetCore_NAT.make ip));
    Hashtbl.find nat_hash ip
- 
+
  let mk_fw sw inside outside =
    NetCore_StatefulFirewall.make sw inside outside
- 
+
 %}
 
 %token LPAREN
@@ -103,6 +103,7 @@
 %token ICMP
 %token TCP
 %token UDP
+%token RANGE
 %token MONITOR_POL
 %token MONITOR_TBL
 %token MONITOR_LOAD
@@ -136,9 +137,9 @@ pred_atom :
   | SWITCH EQUALS INT64 { Pol.OnSwitch $3 }
   /* ARJUN: I do not want the lexer to distinguish integers of different sizes.
      (i.e., I do not want users to have to write suffixed integers such as
-     0xbeefbeefbeefbeefL for large integers. So, I'm lexing everything to 
+     0xbeefbeefbeefbeefL for large integers. So, I'm lexing everything to
      Int64, then having checked-casts down to the right size. */
-  | INPORT EQUALS INT64 
+  | INPORT EQUALS INT64
     { Pol.Hdr (P.inPort (P.Physical (int32_of_int64 $3))) }
   | SRCMAC EQUALS MACADDR { Pol.Hdr (P.dlSrc $3) }
   | DSTMAC EQUALS MACADDR { Pol.Hdr (P.dlDst $3) }
@@ -146,6 +147,9 @@ pred_atom :
   | VLAN EQUALS INT64 { Pol.Hdr (P.dlVlan (Some (int12_of_int64 $3))) }
   | SRCIP EQUALS IPADDR { Pol.Hdr (P.ipSrc $3) }
   | DSTIP EQUALS IPADDR { Pol.Hdr (P.ipDst $3) }
+  | SRCIP RANGE IPADDR IPADDR { Pol.Hdr (P.ipSrcRange $3 $4) }
+  | DSTIP RANGE IPADDR IPADDR { Pol.Hdr (P.ipDstRange $3 $4) }
+
   | TCPSRCPORT EQUALS INT64 { Pol.Hdr (P.tcpSrcPort (int16_of_int64 $3)) }
   | TCPDSTPORT EQUALS INT64 { Pol.Hdr (P.tcpDstPort (int16_of_int64 $3)) }
   | FRAMETYPE EQUALS ARP
@@ -162,7 +166,7 @@ pred_atom :
     { Pol.Hdr (P.ipProto 0x11) }
   | PROTOCOLTYPE EQUALS INT64
     { Pol.Hdr (P.ipProto (int8_of_int64 $3)) }
-    
+
 cexp :
   | ID
     { Id (symbol_start_pos (), $1) }
@@ -181,11 +185,11 @@ pred :
   | pred_and { $1 }
 
 pol_atom :
-  | LPAREN pol RPAREN 
+  | LPAREN pol RPAREN
     { $2 }
-  | BEGIN pol END 
+  | BEGIN pol END
     { $2 }
-  | FILTER pred 
+  | FILTER pred
     { Filter (symbol_start_pos (), $2) }
   | cexp
     { CExp $1 }
@@ -196,9 +200,9 @@ pol_atom :
     { Action1 (symbol_start_pos (), $3,
                 (* XXX: Why is the last int64 ignored? *)
                 fun i -> Action.forward (int32_of_int64 i)) }
-  | PASS 
+  | PASS
     { Action (symbol_start_pos (), Action.pass) }
-  | DROP 
+  | DROP
     { Action (symbol_start_pos (), Action.drop) }
   | VLAN NONE RARROW cexp
     { Action1 (symbol_start_pos (), $4,
@@ -228,7 +232,7 @@ pol_atom :
     { Action (symbol_start_pos (), Action.updateSrcIP $2 $4) }
   | DSTIP IPADDR RARROW IPADDR
     { Action (symbol_start_pos (), Action.updateDstIP $2 $4) }
-  | ALL 
+  | ALL
     { Action (symbol_start_pos (), Action.to_all) }
   | MONITOR_POL LPAREN pol RPAREN
     { Transform (symbol_start_pos (), NetCore_Monitoring.monitor_pol, $3) }
@@ -245,7 +249,7 @@ pol_atom :
       CExp (Value (PolStream (lwt_e, pol)))
     }
 
-pol_pred_double :  
+pol_pred_double :
   | pol_atom
     { $1 }
   | IF pred THEN pol_pred_double ELSE pol_pred_double
@@ -254,13 +258,13 @@ pol_pred_double :
 pol_pred_single:
   | pol_pred_double
     { $1 }
-  | IF pred THEN pol_pred_double 
+  | IF pred THEN pol_pred_double
     { ITE (symbol_start_pos (), $2, $4, Action (symbol_start_pos (), Action.drop)) }
 
 pol_seq_list :
-  | pol_pred_single 
+  | pol_pred_single
     { $1 }
-  | pol_pred_single SEMI pol_seq_list 
+  | pol_pred_single SEMI pol_seq_list
     { Seq (symbol_start_pos (), $1, $3) }
 
 pol_par_list :
@@ -274,7 +278,7 @@ pol :
     { $1 }
   | pol_pred_single PLUS pol_par_list
     { Par (symbol_start_pos (), $1, $3) }
-  | pol_pred_single SEMI pol_seq_list 
+  | pol_pred_single SEMI pol_seq_list
     { Seq (symbol_start_pos (), $1, $3) }
   | LET ID EQUALS pol IN pol
     { Let (symbol_start_pos (),
@@ -283,7 +287,7 @@ pol :
   | LET ID COMMA ID EQUALS ID LPAREN PUBLICIP EQUALS IPADDR RPAREN IN pol
     { (* TODO(arjun): sort of strange, but correct. its the private policy
          that induces policy updates. *)
-      if $6 <> "nat" then 
+      if $6 <> "nat" then
 	raise Parsing.Parse_error
       else
 	let (lwt_e, priv, pub) = mk_nat $10 in
@@ -293,7 +297,7 @@ pol :
              $13) }
 
 program :
- | pol EOF 
+ | pol EOF
     { Main (symbol_start_pos (), $1) }
 
  | LET ID EQUALS pol EOF
@@ -301,7 +305,7 @@ program :
         Main (symbol_start_pos (),
               Action (symbol_start_pos (), Action.drop))) }
 
- | LET ID EQUALS pol program 
+ | LET ID EQUALS pol program
     { Bind (symbol_start_pos (), $2, $4,  $5) }
 
  | INCLUDE STRING program

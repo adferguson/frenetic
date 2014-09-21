@@ -31,11 +31,11 @@ module PortOrderedType = struct
   type t = port
   let compare = Pervasives.compare
   let to_string =  function
-    | Physical pid -> 
+    | Physical pid ->
       Format.sprintf "Physical %ld" pid
     | All -> "All"
     | Here -> "Here"
-    | Queue (pid, qid) -> 
+    | Queue (pid, qid) ->
       Format.sprintf "Queue %ld %ld" pid qid
 
   let masked_inter (v1, m1) (v2, m2) = failwith "unsupported"
@@ -151,6 +151,16 @@ let ipSrc ip =
   { all with
     ptrnDlTyp = WildcardExact 0x800;
     ptrnNwSrc = WildcardExact ip }
+
+let ipSrcRange ip mask =
+  { all with
+    ptrnDlTyp = WildcardExact 0x800;
+    ptrnNwSrc = WildcardPartial (ip, mask) }
+
+let ipDstRange ip mask =
+  { all with
+    ptrnDlTyp = WildcardExact 0x800;
+    ptrnNwDst = WildcardPartial (ip, mask) }
 
 let ipDst ip =
   { all with
@@ -268,10 +278,10 @@ let to_match0x04 pat =
   | (Some dlSrc, Some dlDst, Some dlTyp, Some dlVlan, Some dlVlanPcp,
      Some nwSrc, Some nwDst, Some nwProto, Some nwTos,
      Some tpSrc, Some tpDst, Some inPort) ->
-    ((match dlSrc with       None -> [] | Some v -> [ OF0x04.OxmEthSrc (OF0x04.val_to_mask v) ]) 
-     @ (match dlDst with     None -> [] | Some v -> [ OF0x04.OxmEthDst (OF0x04.val_to_mask v) ]) 
-     @ (match dlTyp with     None -> [] | Some v -> [ OF0x04.OxmEthType v ]) 
-     @ (match dlVlan with    None -> [] | Some (None) -> [] | Some (Some v) -> [ OF0x04.OxmVlanVId (OF0x04.val_to_mask v) ]) 
+    ((match dlSrc with       None -> [] | Some v -> [ OF0x04.OxmEthSrc (OF0x04.val_to_mask v) ])
+     @ (match dlDst with     None -> [] | Some v -> [ OF0x04.OxmEthDst (OF0x04.val_to_mask v) ])
+     @ (match dlTyp with     None -> [] | Some v -> [ OF0x04.OxmEthType v ])
+     @ (match dlVlan with    None -> [] | Some (None) -> [] | Some (Some v) -> [ OF0x04.OxmVlanVId (OF0x04.val_to_mask v) ])
      @ (match dlVlanPcp with None -> [] | Some v -> [ OF0x04.OxmVlanPcp v ])
      @ (match nwSrc with     None -> [] | Some v -> [ OF0x04.OxmIP4Src (OF0x04.val_to_mask v) ])
      @ (match nwDst with     None -> [] | Some v -> [ OF0x04.OxmIP4Dst (OF0x04.val_to_mask v) ])
@@ -311,15 +321,15 @@ let contains pat1 pat2 =
   TpPortWildcard.contains pat1.ptrnTpDst pat2.ptrnTpDst &&
   PortWildcard.contains pat1.ptrnInPort pat2.ptrnInPort
 
-let zero_default32 f x = 
-  try f x 
+let zero_default32 f x =
+  try f x
   with Invalid_argument _ -> 0l
 
-let zero_default f x = 
+let zero_default f x =
   try f x
   with Invalid_argument _ -> 0
 
-let exact_pattern pk pt = 
+let exact_pattern pk pt =
   let dlTyp = Packet.dlTyp pk in
   { ptrnDlSrc = WildcardExact pk.dlSrc
   ; ptrnDlDst = WildcardExact pk.dlDst
