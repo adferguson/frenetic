@@ -88,6 +88,10 @@ val ipSrc : nwAddr -> t
 
 val ipDst : nwAddr -> t
 
+val ipSrcRange : nwAddr -> nwAddr -> t
+
+val ipDstRange : nwAddr -> nwAddr -> t
+
 val ipProto : nwProto -> t
 
 val ipTos : nwTos -> t

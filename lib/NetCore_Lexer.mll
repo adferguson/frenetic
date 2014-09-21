@@ -20,7 +20,7 @@ let decimal = ['0'-'9']+
 let float_ = ['0'-'9']+ '.' ['0'-'9']+
 let hex = "0x" ['0'-'9' 'a'-'f' 'A'-'F']+
 let byte = ['0'-'9' 'a'-'f' 'A'-'F']?  ['0'-'9' 'a'-'f' 'A'-'F']
-let decbyte = 
+let decbyte =
   (['0'-'9'] ['0'-'9'] ['0'-'9']) | (['0'-'9'] ['0'-'9']) | ['0'-'9']
 let string_body = ([^'"'] | "\\\"")*
 
@@ -39,12 +39,12 @@ and literate_text = parse
 and token = parse
   | "(*" { block_comment lexbuf }
   | blank+ { token lexbuf }
-  | "```\n" 
+  | "```\n"
     { match !st with
-      | LiterateBlock -> literate lexbuf 
+      | LiterateBlock -> literate lexbuf
       | Code -> TICKTICKTICK (* makes parser fail *)
       | LiterateLine -> TICKTICKTICK (* makes parser fail *) }
-  | '\n' { new_line lexbuf; 
+  | '\n' { new_line lexbuf;
            match !st with
              | Code -> token lexbuf
              | LiterateBlock -> token lexbuf
@@ -53,11 +53,12 @@ and token = parse
   | "," { COMMA }
   | "in" { IN }
   | "at" { AT }
-  | "publicIP" { PUBLICIP } 
+  | "publicIP" { PUBLICIP }
   | "(" { LPAREN }
   | ")" { RPAREN }
   | "{" { LCURLY }
   | "}" { RCURLY }
+  | "/" { RANGE }
   | "!" { NOT }
   | "?" { QMARK }
   | "*" { STAR }
@@ -104,8 +105,8 @@ and token = parse
   | ";" { SEMI }
   | "|" { BAR }
   | "+" { PLUS }
-  | (byte as n6) ":" (byte as n5) ":" (byte as n4) ":" (byte as n3) ":" 
-    (byte as n2) ":" (byte as n1) 
+  | (byte as n6) ":" (byte as n5) ":" (byte as n4) ":" (byte as n3) ":"
+    (byte as n2) ":" (byte as n1)
     { let open Int64 in
       MACADDR
         (logor (shift_left (parse_byte n6) 40)
@@ -117,12 +118,12 @@ and token = parse
   | float_ as f { FLOAT (float_of_string f) }
   | (decbyte as b4) "." (decbyte as b3) "." (decbyte as b2) "." (decbyte as b1)
     { let open Int32 in
-      IPADDR 
+      IPADDR
         (logor (shift_left (parse_decbyte b4) 24)
            (logor (shift_left (parse_decbyte b3) 16)
               (logor (shift_left (parse_decbyte b2) 8)
                  (parse_decbyte b1)))) }
-  | decimal as n { INT64 (Int64.of_string n) } 
+  | decimal as n { INT64 (Int64.of_string n) }
   | hex as n { INT64 (Int64.of_string n) }
   | "let" { LET }
   | '"' (string_body as s) '"' { STRING s }
